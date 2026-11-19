@@ -1,0 +1,246 @@
+// LANTERNFALL — the campaign: chapters, waves and story.
+export const CAST = {
+  warden: { name: 'The Warden', color: '#d8c7a0' },
+  edric: { name: 'Castellan Edric Vane', color: '#c9b27c', model: 'Paladin_with_Helmet', weapons: [{ id: 'paladin_hammer', hand: 'r' }, { id: 'paladin_shield', hand: 'l' }] },
+  maren: { name: 'Sister Maren', color: '#e2d6b8', model: 'Cleric', weapons: [{ id: 'Cleric_Tome', hand: 'l' }] },
+  thessaly: { name: 'Thessaly Crowe', color: '#a9b8d6', model: 'Lorekeeper', weapons: [{ id: 'Lorekeeper_Tome', hand: 'l' }] },
+  fenra: { name: 'Fenra of the Thornwood', color: '#9fd0a2', model: 'Druid', weapons: [{ id: 'druid_staff', hand: 'r' }] },
+  bruna: { name: 'Bruna Ironvein', color: '#d6a878', model: 'Engineer', weapons: [{ id: 'engineer_Wrench', hand: 'r' }] },
+  gorza: { name: 'Warchief Gorza', color: '#d08a6a', model: 'OrcBrute', weapons: [{ id: 'Orc_Axe_Large', hand: 'r' }], scale: 0.8 },
+  aldous: { name: 'Sir Aldous', color: '#b49ae6', model: 'BlackKnight', weapons: [{ id: 'BlackKnight_Sword_Large', hand: 'r' }], scale: 0.8 },
+  regent: { name: 'The Pale Regent', color: '#f0c0d0', model: 'Vampire', scale: 1.2 },
+  voice: { name: 'A Voice in the Fog', color: '#b48cff', italic: true },
+  narrator: { name: '', color: '#cfc6b4', italic: true },
+};
+
+export const PROLOGUE = [
+  'Four hundred years ago, the Pale Mist rose from the Hollowmere and swallowed the kingdom of Vael.',
+  'Saint Ysolde kindled six Lanterns from her own heart\'s fire. Where their light fell, the fog could not pass, and the dead stayed dead.',
+  'One by one, the Lanterns have gone out.',
+  'Only Dawnhold\'s still burns. Every night the fog creeps closer. Every night, something walks out of it.',
+];
+
+const w = (msg, ...spawn) => ({ msg, spawn });
+
+export const CHAPTERS = [
+  {
+    n: 1, id: 'lantern', title: 'The Last Lantern', place: 'Dawnhold', biome: 'dawnhold', fortress: 'barrow', seed: 11,
+    shrines: [[-24, -15], [16, 14]], fortressHP: 3000, rift: 'the Barrow Rift', reward: 400,
+    objective: 'Hold the wall. When the fog thins, break the Barrow Rift.',
+    waves: [
+      w('The fog stirs. Something walks in it.', ['thrall', 5]),
+      w('More shapes in the mist.', ['thrall', 7], ['arbalist', 2]),
+      w('Shields in the fog. The dead remember their drills.', ['legionnaire', 3], ['thrall', 6], ['arbalist', 2]),
+      w('They are climbing out of the barrow.', ['thrall', 8], ['hexer', 2], ['legionnaire', 3], ['arbalist', 2]),
+      w('A Bonecaller. Kill it before it raises the fallen.', ['legionnaire', 5], ['thrall', 8], ['hexer', 2], ['bonecaller', 1]),
+      w('Something vast is moving in the fog.', ['colossus', 1], ['thrall', 10], ['arbalist', 3]),
+    ],
+    boss: { type: 'morrow', msg: 'Morrow the Bonecaller rises from the barrow.' },
+    intro: [
+      ['narrator', 'Dawnhold. The last night of autumn.'],
+      ['edric', 'Fog\'s early tonight.'],
+      ['maren', 'The Lantern guttered at vespers, Castellan. It has never guttered. Not once in four hundred years.'],
+      ['edric', 'Then we hold until it stops.'],
+      ['thessaly', 'You\'ll hold a long time, then. We sent twelve riders to Greywater. None came back. Their horses did.'],
+      ['edric', 'Warden. You\'ve drilled them all summer. Now they need to see you fight.'],
+      ['voice', 'Warden... you can hear us, can\'t you... let the light go out...'],
+      ['maren', 'Did... did anyone else hear that?'],
+      ['edric', 'Bells. Torches. Every soul to the wall. Here they come.'],
+    ],
+    outro: [
+      ['edric', 'That was not an army. That was a test.'],
+      ['thessaly', 'The rift opened from inside the old barrow. They aren\'t marching here from the Hollowmere any more. They\'re climbing out of our graves.'],
+      ['maren', 'A raven came from the Thornwood while you fought. Fenra\'s Lantern is dark. The forest is singing, she wrote. She did not say what.'],
+      ['edric', 'Then we ride for the Thornwood at first light.'],
+      ['voice', 'There is no first light, little Warden. Not any more.'],
+    ],
+  },
+  {
+    n: 2, id: 'thornwood', title: 'The Singing Wood', place: 'The Thornwood', biome: 'thornwood', fortress: 'witchgrove', seed: 23,
+    shrines: [[-26, 14], [4, -16], [36, 12]], fortressHP: 4200, rift: 'the Witch-Grove', reward: 500,
+    objective: 'Hold the Wardens\' keep. Burn the Witch-Grove.',
+    waves: [
+      w('Eyes in the trees.', ['wolf', 6]),
+      w('The coven sends its dead.', ['thrall', 6], ['wolf', 4], ['witch', 1]),
+      w('Bowstrings in the branches.', ['legionnaire', 4], ['arbalist', 4], ['wolf', 4]),
+      w('A howl. Close. Too close.', ['werewolf', 1], ['wolf', 6], ['witch', 2]),
+      w('The forest is singing.', ['thrall', 10], ['hexer', 3], ['witch', 2], ['legionnaire', 4]),
+      w('They wear the voices of the lost.', ['werewolf', 2], ['wolf', 8], ['bonecaller', 1], ['arbalist', 4]),
+      w('The roots are bleeding.', ['colossus', 1], ['witch', 3], ['wolf', 6], ['hexer', 2]),
+    ],
+    boss: { type: 'hexmother', msg: 'Hexmother Morwen steps out of the grove.' },
+    intro: [
+      ['fenra', 'You came. I stopped hoping three nights ago.'],
+      ['fenra', 'The wolves came back wrong. They walk on two legs now, and they wear our children\'s voices.'],
+      ['maren', 'The coven at Witchmere has opened a grove to the fog. They feed it, Warden. And it feeds them.'],
+      ['fenra', 'Burn the grove. I\'ll show you where the roots run deepest.'],
+      ['voice', 'So much green... it will look lovely grey.'],
+    ],
+    outro: [
+      ['fenra', 'The Hexmother is dead. The grove is ash.'],
+      ['fenra', 'Some of the cursed are still breathing. They were ours once. Hunters. Fathers. I can bind the curse, but the rite takes a Lantern-sister\'s blood.'],
+      ['maren', '...How much blood?'],
+      ['fenra', 'Enough that you will feel it every winter.'],
+      { choice: [
+        { text: 'Spare the cursed.', note: 'The Moonclaw joins you. Sisters of the Lantern heal 15% less.', flag: 'spareCursed', reply: ['maren', 'Then take it. Quickly. Before I think about it.'] },
+        { text: 'Burn them all.', note: '+300 gold. The Thornwood will remember.', flag: 'burnedCursed', gold: 300, reply: ['fenra', '...Then they burn. I will light it myself.'] },
+      ] },
+    ],
+  },
+  {
+    n: 3, id: 'highforge', title: 'The Frozen Forge', place: 'Highforge Pass', biome: 'highforge', fortress: 'frozenbreach', seed: 37,
+    shrines: [[-20, -16], [14, 15]], fortressHP: 5500, rift: 'the Frozen Breach', reward: 600,
+    objective: 'Hold Highforge\'s gate. Shatter the Frozen Breach.',
+    waves: [
+      w('Frost on the bones. The dead march out of the storm.', ['rimewight', 4], ['thrall', 6]),
+      w('Crossbows in the blizzard.', ['arbalist', 5], ['rimewight', 4], ['hexer', 2]),
+      w('The mountain groans.', ['colossus', 1], ['thrall', 10]),
+      w('They do not feel the cold.', ['rimewight', 6], ['hexer', 4], ['arbalist', 4]),
+      w('Two shapes, taller than the walls.', ['colossus', 2], ['rimewight', 4]),
+      w('The storm is full of them.', ['legionnaire', 8], ['hexer', 4], ['bonecaller', 2], ['rimewight', 4]),
+      w('The ice is cracking under their weight.', ['colossus', 2], ['rimewight', 6], ['arbalist', 6]),
+    ],
+    boss: { type: 'rimebound', msg: 'The Rimebound wakes. The forge-guardian walks for the fog now.' },
+    intro: [
+      ['bruna', 'Took you long enough. Highforge\'s Lantern went out eleven days ago. We\'ve been burning the furniture.'],
+      ['bruna', 'The fog froze the forge-heart, and now our guardian walks for them. The Rimebound. We built it to keep things out.'],
+      ['edric', 'Can it be stopped?'],
+      ['bruna', 'Break the rune on its chest and it\'s just a big lump of ice again. Getting close is the trick.'],
+      ['edric', 'Warden... last night I heard my son in the fog. Aldous. Ten years dead. He called me by name.'],
+      ['maren', 'Castellan, the fog uses voices. You know that.'],
+      ['edric', 'I know. I know.'],
+    ],
+    outro: [
+      ['bruna', 'Forge-heart\'s lit. The Rimebound is ours again, gods help whoever it\'s pointed at.'],
+      ['maren', 'Warden... the Castellan. He was on the bridge when the golem fell. Then he walked into the storm. Toward the voice.'],
+      ['thessaly', 'We found his shield in the snow. Only his shield.'],
+      ['voice', 'He came home, Warden. Everyone comes home, in the end.'],
+    ],
+  },
+  {
+    n: 4, id: 'redmaw', title: 'The Red Maw', place: 'The Ash Road', biome: 'redmaw', fortress: 'warcamp', seed: 51,
+    shrines: [[-22, 15], [8, -14], [38, 16]], fortressHP: 6000, rift: 'the War Totem', reward: 700,
+    objective: 'Hold Dawnhold against the horde. Topple the War Totem.',
+    waves: [
+      w('Drums in the red haze.', ['wildling', 8]),
+      w('The Red Maw charges.', ['raider', 5], ['wildling', 6]),
+      w('The fog is chasing them. Whatever they flee, it follows.', ['raider', 6], ['wildling', 6], ['thrall', 6]),
+      w('A brute leads the next wave.', ['brute', 1], ['raider', 6], ['wildling', 8]),
+      w('Orc and dead march side by side.', ['raider', 8], ['brute', 1], ['arbalist', 4], ['legionnaire', 4]),
+      w('The ground shakes with their charge.', ['brute', 2], ['raider', 8], ['wildling', 10]),
+      w('They are desperate now.', ['brute', 2], ['raider', 6], ['colossus', 1], ['hexer', 3]),
+    ],
+    boss: { type: 'gorza', msg: 'Warchief Gorza takes the field himself.' },
+    intro: [
+      ['thessaly', 'Orcs. The Red Maw clans. Thousands of them, marching straight for our walls.'],
+      ['bruna', 'Since when do orcs march on castles? They raid. They burn. They leave.'],
+      ['thessaly', 'Since the fog ate everything east of the Ash Hills. They are not coming to conquer, Warden. They are coming for the light.'],
+      ['gorza', 'DAWNHOLD! Open your gate or we tear it down! My people will not die in the dark!'],
+      ['maren', 'We cannot feed them. We can barely feed ourselves.'],
+    ],
+    outro: [
+      ['gorza', 'Enough. You have beaten me, lantern-keeper. My axe is yours to break.'],
+      ['gorza', 'But hear me first. The fog is behind us. It took my mother, my sons, my gods. Kill me if you must. Only give my people your light.'],
+      { choice: [
+        { text: 'Open the gate.', note: 'The Red Maw join you: Raiders, Brutes and War Drummers. -200 gold for their keep.', flag: 'orcs', gold: -200, reply: ['gorza', 'Then the Red Maw fights beside you. To the last drum.'] },
+        { text: 'Execute Gorza.', note: '+400 gold. The clans scatter into the fog.', flag: 'executedGorza', gold: 400, reply: ['thessaly', '...The fog will have them by morning. And then it will have them as soldiers.'] },
+      ] },
+    ],
+  },
+  {
+    n: 5, id: 'drowned', title: 'The Drowned Cathedral', place: 'Saint\'s Mire', biome: 'drowned', fortress: 'cathedral', seed: 67,
+    shrines: [[-24, -14], [6, 16], [40, -12]], fortressHP: 7000, rift: 'the Drowned Cathedral', reward: 800,
+    objective: 'Hold the Saint\'s Bastion. Breach the Drowned Cathedral.',
+    waves: [
+      w('Bells under the water. Someone is ringing them.', ['thrall', 10], ['dreadguard', 2]),
+      w('Knights in black iron.', ['dreadguard', 4], ['arbalist', 5], ['hexer', 3]),
+      w('Something stitched together is wading toward you.', ['abomination', 1], ['thrall', 12]),
+      w('The coven\'s last daughters.', ['dreadguard', 6], ['witch', 3], ['wolf', 6]),
+      w('The mire is full of graves.', ['abomination', 1], ['dreadguard', 5], ['bonecaller', 2], ['arbalist', 5]),
+      w('More of them. Always more.', ['abomination', 2], ['dreadguard', 6], ['hexer', 4]),
+      w('The water is moving toward the walls.', ['werewolf', 2], ['dreadguard', 6], ['abomination', 1], ['courtier', 2]),
+    ],
+    boss: { type: 'aldousBoss', msg: 'The Black Knight rides out of the cathedral. Sir Aldous.' },
+    intro: [
+      ['thessaly', 'I found it. Saint Ysolde\'s last confession. Sealed in the Drowned Cathedral under four centuries of silt and prayer.'],
+      ['maren', 'Why would the Church hide a confession?'],
+      ['thessaly', 'That is what I would like to know.'],
+      ['voice', 'Father...? No. Not father. Warden. Father sent you. Father always sends someone else.'],
+      ['maren', 'That voice... it\'s Aldous. Edric\'s son.'],
+      ['thessaly', 'Whatever it is now, it is guarding the confession.'],
+    ],
+    outro: [
+      ['aldous', '...It\'s cold. Why is it always so cold...'],
+      ['aldous', 'I saw him, Warden. My father. In the fog. He is with her now. Everyone is with her.'],
+      ['thessaly', '"I did not banish the dead. I bound them. Every Lantern is a pyre, and every flame a soul that cannot rest. And when the last chain was forged, I bound myself."'],
+      ['maren', 'No. The Lantern is holy. I have tended it my whole life. I have...'],
+      ['maren', 'I have heard them. Every night. I thought they were prayers.'],
+      { choice: [
+        { text: 'Redeem Aldous.', note: 'Maren\'s holy water may save what is left of him. He joins you as a champion.', flag: 'redeemAldous', reply: ['aldous', 'If any of me is left... it is yours.'] },
+        { text: 'Grant him rest.', note: 'Take up his blade: your hero deals 15% more damage.', flag: 'restAldous', reply: ['aldous', 'Thank you... tell my father... no. I will tell him myself.'] },
+      ] },
+    ],
+  },
+  {
+    n: 6, id: 'lanternfall', title: 'Lanternfall', place: 'Dawnhold', biome: 'citadel', fortress: 'citadel', seed: 83,
+    shrines: [[-24, 14], [-2, -16], [30, 15]], fortressHP: 9000, rift: 'the Pale Citadel', reward: 0,
+    objective: 'Hold Dawnhold. End the Pale Regent.',
+    waves: [
+      w('The fog is everywhere now.', ['courtier', 3], ['thrall', 12]),
+      w('Black iron and bone.', ['dreadguard', 6], ['arbalist', 6], ['hexer', 3]),
+      w('The beasts of the Thornwood, turned.', ['abomination', 1], ['werewolf', 2], ['wolf', 8]),
+      w('Her court comes to watch you die.', ['courtier', 4], ['dreadguard', 6], ['bonecaller', 2]),
+      w('Giants of bone.', ['colossus', 2], ['abomination', 1], ['legionnaire', 8]),
+      w('The witches sing for her.', ['courtier', 5], ['dreadguard', 8], ['witch', 4], ['werewolf', 2]),
+      w('Every grave in Vael is empty.', ['abomination', 2], ['colossus', 2], ['dreadguard', 6], ['courtier', 4]),
+      w('Hold. Hold. HOLD.', ['thrall', 20], ['legionnaire', 10], ['arbalist', 8], ['hexer', 6]),
+    ],
+    boss: { type: 'regent', msg: 'The Pale Regent descends.' },
+    intro: [
+      ['narrator', 'The fog did not come at night. It came at noon, and the sun went out.'],
+      ['thessaly', 'There is a citadel in the fog. It was not there yesterday. It was not anywhere yesterday.'],
+      ['regent', 'Warden. Do you know what it is to burn for four hundred years?'],
+      ['regent', 'I was Ysolde once. I gave my heart to light those Lanterns. I gave everyone\'s heart. And I have screamed inside that flame every night since.'],
+      ['regent', 'Let it go out. Let us all go.'],
+      ['maren', 'If the Lantern dies, the fog takes Dawnhold. Everyone here.'],
+      ['thessaly', 'And if it lives, they burn forever. Her too. Your Castellan too.'],
+      { choice: [
+        { text: 'Defend the Lantern.', note: 'The living come first.', flag: 'relight', reply: ['regent', 'Then burn with me, Warden.'] },
+        { text: 'Break the Lantern.', note: 'Let the dead rest, whatever it costs.', flag: 'sever', reply: ['regent', '...Then come and find me. I will not make it easy. I cannot.'] },
+      ] },
+    ],
+    endings: {
+      relight: [
+        ['narrator', 'The Pale Regent fell, and the Lantern drank her screaming back into its flame.'],
+        ['narrator', 'The fog drew back to the Hollowmere, and Dawnhold stood.'],
+        ['maren', 'It burns brighter now. I can hear her in it. I can hear all of them.'],
+        ['narrator', 'Every night Sister Maren tends the Last Lantern. Every night she does not sleep.'],
+        ['narrator', 'THE LIGHT HOLDS. THE DEAD DO NOT REST.'],
+      ],
+      sever: [
+        ['narrator', 'The Warden climbed the keep and broke the Last Lantern with their own hands.'],
+        ['narrator', 'Four hundred years of souls poured out of it like sparks from a forge. The fog came apart into ash and silence.'],
+        ['regent', '...Thank you.'],
+        ['narrator', 'When the sun rose over Dawnhold for the first time in four centuries, the Warden was gone. Some say they walked into the last of the fog, to lead the dead home.'],
+        ['narrator', 'THE LANTERN IS DARK. THE DEAD ARE AT PEACE.'],
+      ],
+    },
+  },
+];
+
+export const BARKS = {
+  castleLow: ['Your walls are crumbling, Warden...', 'Can you hear the gate splinter?', 'Soon, little Warden. Soon.'],
+  heroDown: ['Rest now...', 'Stay down. It is warmer down here.', 'Join us...'],
+  bossDead: ['...', 'It does not matter. There are always more of us.'],
+};
+
+export const UPGRADES = {
+  walls: { name: 'Walls', desc: '+20% castle durability per rank.', costs: [200, 350, 550, 800, 1100] },
+  towers: { name: 'Arrow Towers', desc: 'Towers shoot faster and harder. Rank 3: fire arrows. Rank 5: ballistae.', costs: [180, 320, 500, 750, 1000] },
+  lantern: { name: 'Lantern Shrine', desc: '+15% Command Point regeneration per rank.', costs: [200, 360, 560, 820, 1150] },
+  horn: { name: 'War Horn', desc: '+8 maximum Command Points and +2 starting Command Points per rank.', costs: [150, 300, 480, 700, 950] },
+  barracks: { name: 'Barracks', desc: '+4 army size per rank.', costs: [220, 380, 600, 860, 1200] },
+  armory: { name: 'Armory', desc: 'Hero weapon: +12% damage per rank.', costs: [200, 380, 600, 900, 1300] },
+  plate: { name: 'Plate', desc: 'Hero armor: +12% health and +1 armor per rank.', costs: [200, 380, 600, 900, 1300] },
+};
+export const UNIT_LEVEL_COSTS = [120, 260];  // veteran, elite
