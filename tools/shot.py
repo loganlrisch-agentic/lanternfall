@@ -13,7 +13,10 @@ async def main():
         t0 = time.time()
         await pg.goto(url)
         try:
-            await pg.wait_for_function('window.__ready === true', timeout=wait * 1000)
+            # poll instead of wait_for_function so pages under a strict CSP (no eval) still work
+            while not await pg.evaluate('window.__ready === true'):
+                if time.time() - t0 > wait: raise TimeoutError('not ready after %ss' % wait)
+                await asyncio.sleep(1)
         except Exception as e:
             logs.append('TIMEOUT waiting for ready ' + str(e)[:200])
         info = await pg.evaluate('window.__info || null')

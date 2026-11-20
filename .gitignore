@@ -6,3 +6,4 @@ dist/
 test.html
 src/test.js
 public/game.js
+artifact-build/

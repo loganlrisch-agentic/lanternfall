@@ -6,7 +6,8 @@
     "build": "esbuild src/main.js --bundle --format=esm --target=es2020 --minify --outfile=public/game.js",
     "dev": "esbuild src/main.js --bundle --format=esm --target=es2020 --outdir=public --entry-names=game --servedir=public --serve=8080",
     "assets:fetch": "bash tools/fetch-assets.sh",
-    "assets": "node tools/build-assets.mjs"
+    "assets": "node tools/build-assets.mjs",
+    "artifact": "npm run build && node tools/build-artifact.mjs"
   },
   "dependencies": {
     "three": "^0.181.2",

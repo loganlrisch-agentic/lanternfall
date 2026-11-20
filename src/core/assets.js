@@ -34,7 +34,27 @@ export const A = {
 import { globalUniforms } from './uniforms.js';
 export { globalUniforms };
 
-const loadGLB = url => new Promise((res, rej) => loader.load(url, res, undefined, rej));
+// Hosts that refuse to serve .glb (the claude.ai artifact preview) get the same
+// bytes as base64 text: index.html sets window.LF_PACKED and tools/build-artifact.mjs
+// writes <name>.glb.txt beside each model. Vercel and local dev use the plain .glb.
+const PACKED = typeof window !== 'undefined' && !!window.LF_PACKED;
+if (PACKED) {
+  // decode embedded textures through <img> so strict CSPs that block fetch(blob:) still work
+  loader.register(parser => {
+    parser.textureLoader = new THREE.TextureLoader(parser.options.manager);
+    return { name: 'lf_img_textures' };
+  });
+}
+function b64ToBuffer(txt) {
+  const bin = atob(txt.trim());
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out.buffer;
+}
+const loadGLB = url => PACKED
+  ? fetch(url + '.txt').then(r => { if (!r.ok) throw new Error(url + ' ' + r.status); return r.text(); })
+      .then(t => new Promise((res, rej) => loader.parse(b64ToBuffer(t), '', res, rej)))
+  : new Promise((res, rej) => loader.load(url, res, undefined, rej));
 
 function tuneMaterial(m, env = false) {
   if (!m || m.userData.tuned) return;
