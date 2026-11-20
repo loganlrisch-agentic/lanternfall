@@ -386,7 +386,7 @@ class Game {
       if (ch >= 3) for (const id of this.save.loadout) this.save.unitLevels[id] = 2;
     }
     if (params.get('arcade')) {
-      this.arcade = { hero: this.save.hero, diff: this.save.difficulty, night: ch, picks: this.save.loadout.slice(0, 6) };
+      this.arcade = { hero: this.save.hero, diff: this.save.difficulty, night: ch, picks: this.save.loadout.slice(0, 8) };
       this.save = arcadeSave(this.arcade);
     }
     this.battle = new Battle(this, CHAPTERS[ch - 1], this.save);

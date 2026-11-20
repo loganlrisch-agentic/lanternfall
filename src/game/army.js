@@ -53,7 +53,7 @@ export class Army {
     const live = this.units;
     const n = live.length;
     if (!n) { this.depth = 0; return; }
-    const width = clamp(Math.round(Math.sqrt(n * 1.9)), 3, 8);
+    const width = clamp(Math.round(Math.sqrt(n * 1.9)), 3, 11);   // big armies spread wider rather than deeper
     // role order decides which ranks exist; heavies (large units) get their own key so they keep the wide slots
     const key = u => this.role(u) + (u.isLarge ? ':L' : '');
     const byRole = {};

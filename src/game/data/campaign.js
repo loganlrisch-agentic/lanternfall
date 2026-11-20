@@ -249,7 +249,7 @@ export const UPGRADES = {
   towers: { name: 'Arrow Towers', desc: 'Towers shoot faster and harder. Rank 3: fire arrows. Rank 5: ballistae.', costs: [180, 320, 500, 750, 1000] },
   lantern: { name: 'Lantern Shrine', desc: '+15% coin income in battle per rank.', costs: [200, 360, 560, 820, 1150] },
   horn: { name: 'War Horn', desc: '+6 war chest size and +2 starting coin per rank.', costs: [150, 300, 480, 700, 950] },
-  barracks: { name: 'Barracks', desc: '+4 army size per rank.', costs: [220, 380, 600, 860, 1200] },
+  barracks: { name: 'Barracks', desc: 'Troops muster faster: every unit can be called again 10% sooner per rank.', costs: [220, 380, 600, 860, 1200] },
   armory: { name: 'Armory', desc: 'Hero weapon: +12% damage per rank.', costs: [200, 380, 600, 900, 1300] },
   plate: { name: 'Plate', desc: 'Hero armor: +12% health and +1 armor per rank.', costs: [200, 380, 600, 900, 1300] },
 };

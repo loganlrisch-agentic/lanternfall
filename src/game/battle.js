@@ -128,7 +128,8 @@ export class Battle {
     this.coins = 10 + 2 * (up.horn || 0);
     // grows a little each chapter, alongside the enemy's strength
     this.coinBase = 0.16 * (1 + 0.16 * (chapter.n - 1)) * (1 + 0.15 * (up.lantern || 0)) * this.diff.cp;
-    this.popCap = 22 + 4 * (up.barracks || 0);
+    this.popCap = 50;                                   // the most soldiers that can hold the field at once
+    this.cdMul = 1 - 0.1 * (up.barracks || 0);          // barracks: troops muster faster
     this.relicBonus = this.flags.restAldous ? 1.15 : 1;
     this.enemyRim = { dawnhold: '#8a5cff', thornwood: '#5aff9a', highforge: '#7ad8ff', redmaw: '#ff6a3a', drowned: '#5affd0', citadel: '#ff3a5a' }[chapter.biome] || '#8a5cff';
     this.army = new Army(this);
@@ -613,7 +614,8 @@ export class Battle {
     if (alive >= d.limit) { this.hud.toast(`Only ${d.limit} ${d.name} at a time.`, 1.4); return false; }
     this.coins -= d.cost;
     if (this.popStats) this.popStats.spent += d.cost;
-    c.cd = d.cd;
+    this.pop += d.pop * d.count;   // counted at once, so two quick taps can't push past the cap
+    c.cd = d.cd * (this.cdMul || 1);
     const lvl = (this.save.unitLevels || {})[d.id] || 1;
     const sp = this.level.allySpawn;
     for (let k = 0; k < d.count; k++) {

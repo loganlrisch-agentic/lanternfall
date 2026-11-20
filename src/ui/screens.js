@@ -34,7 +34,7 @@ export class Screens {
     const el = h(`<div class="screen title-screen">
       <div class="logo"><h1>Lanternfall</h1><p>When the last light dies, the fog comes for you.</p></div>
       <nav class="menu">
-        <button class="btn primary" data-a="arcade">Arcade<small>Any six troops · any battlefield</small></button>
+        <button class="btn primary" data-a="arcade">Arcade<small>Any eight troops · any battlefield</small></button>
         ${save && save.chapter <= 6 ? `<button class="btn" data-a="continue">Continue Story<small>Chapter ${ROMAN[save.chapter]} · ${ch.title}</small></button>` : ''}
         <button class="btn" data-a="new">${save ? 'New Story' : 'Story Campaign'}</button>
         <button class="btn" data-a="settings">Settings</button>
@@ -107,13 +107,13 @@ export class Screens {
   arcade() {
     const store = loadArcade();
     const valid = id => ALLIES.some(a => a.id === id);
-    const cfg = { hero: 'knight', diff: 'normal', night: 1, picks: ['footman', 'shieldbearer', 'archer', 'adept', 'cleric', 'paladin'], ...(store.last || {}) };
-    cfg.picks = (cfg.picks || []).filter(valid).slice(0, 6);
+    const cfg = { hero: 'knight', diff: 'normal', night: 1, picks: ['footman', 'shieldbearer', 'pikeman', 'archer', 'adept', 'cleric', 'bannerman', 'paladin'], ...(store.last || {}) };
+    cfg.picks = (cfg.picks || []).filter(valid).slice(0, 8);
     let filter = 'all', info = null;
     const ROLE = a => a.anim === 'siege' ? 'heavy' : (a.anim === 'support' || a.special?.heal || a.special?.regrowth) ? 'support'
       : a.range > 4 ? 'ranged' : (a.pop >= 3 || /^large/.test(a.anim)) ? 'heavy'
       : (/shield/i.test(a.anim) || a.armor >= 6 || a.anim === 'spear') ? 'front' : 'melee';
-    const FILTERS = { all: 'All', front: 'Front line', melee: 'Fighters', ranged: 'Ranged', support: 'Healers', heavy: 'Giants & siege' };
+    const FILTERS = { all: 'All', front: 'Front line', melee: 'Fighters', ranged: 'Ranged', support: 'Support', heavy: 'Giants & siege' };
     const ORDER = ['Dawnhold', 'Lantern Order', 'Thornwood', 'Highforge', 'Red Maw', 'The Unquiet', 'Wanderers'];
     const roster = ALLIES.slice().sort((a, b) => ORDER.indexOf(a.faction) - ORDER.indexOf(b.faction) || a.cost - b.cost);
     const foesOf = n => {
@@ -124,7 +124,7 @@ export class Screens {
     };
     const best = n => store.best[`${n}:${cfg.diff}`];
     const el = h(`<div class="screen arcade-screen">
-      <header><div><div class="eyebrow">Arcade</div><h2>Choose your six</h2></div><div class="arc-count"></div></header>
+      <header><div><div class="eyebrow">Arcade</div><h2>Choose your eight</h2></div><div class="arc-count"></div></header>
       <div class="arc-body">
         <section class="arc-setup">
           <h4>Warden</h4><div class="arc-heroes"></div>
@@ -135,10 +135,10 @@ export class Screens {
         <section class="arc-roster"><div class="arc-filters"></div><div class="grid"></div></section>
       </div>
       <div class="arc-dock"><div class="arc-info"></div>
-      <footer><button class="btn" data-a="back">Back</button><div class="loadout"></div><button class="btn" data-a="random">Random six</button><button class="btn primary" data-a="go">Fight</button></footer></div>
+      <footer><button class="btn" data-a="back">Back</button><div class="loadout"></div><button class="btn" data-a="random">Random eight</button><button class="btn primary" data-a="go">Fight</button></footer></div>
     </div>`);
     const save = () => { store.last = { ...cfg }; writeArcade(store); };
-    const setInfo = (html) => { info = html; $('.arc-info', el).innerHTML = html || `<span class="hint">Tap a troop to add it to your six; tap it again to send it home. Every troop costs coin in battle, and coin is always short. Mix a front line, shooters and healers.</span>`; };
+    const setInfo = (html) => { info = html; $('.arc-info', el).innerHTML = html || `<span class="hint">Tap a troop to add it to your eight; tap it again to send it home. Every troop costs coin in battle, and coin is always short. Up to 50 soldiers can hold the field at once. Mix a front line, shooters and healers.</span>`; };
     const unitInfo = a => `<img src="${A.portraits['ally_' + a.id]}"><div><b>${a.name}</b>${a.count > 1 ? ` ×${a.count}` : ''} <span class="fac">${a.faction}</span><div class="kvs"><span>${icon('sun', 12)} ${a.cost} coin</span><span>Army ${a.pop * a.count}</span><span>${a.range > 4 ? 'Range ' + a.range : 'Melee'}</span><span>HP ${a.hp}</span><span>DMG ${a.dmg}</span>${a.limit < 99 ? `<span>Max ${a.limit}</span>` : ''}</div><p>${a.desc}</p></div>`;
     const foeInfo = k => { const e = ENEMIES[k]; return `<img src="${A.portraits['enemy_' + k] || ''}"><div><b>${e.name}</b> <span class="fac">${e.boss ? 'Boss' : 'Enemy'}</span><div class="kvs"><span>HP ${e.hp}</span><span>DMG ${e.dmg}</span><span>${e.range > 4 ? 'Range ' + e.range : 'Melee'}</span></div><p>${e.desc || ''}</p></div>`; };
     const heroInfo = hr => `<img src="${A.portraits['hero_' + hr.id]}"><div><b>${hr.name}</b> <span class="fac">${hr.title}</span><p>${hr.blurb}</p><div class="kvs">${hr.abilities.map(ab => `<span>${icon(ABILITIES[ab].icon, 12)} ${ABILITIES[ab].name}</span>`).join('')}</div></div>`;
@@ -153,7 +153,7 @@ export class Screens {
         const i = cfg.picks.indexOf(a.id);
         return `<div class="ucard ${i >= 0 ? 'in' : ''}" data-u="${a.id}"><img src="${A.portraits['ally_' + a.id]}" alt=""><span class="c">${a.cost}</span>${i >= 0 ? `<span class="pick">${i + 1}</span>` : ''}<div class="nm">${a.name}</div></div>`;
       }).join('');
-      $('.loadout', el).innerHTML = `<label>Your six</label>` + Array.from({ length: 6 }, (_, i) => {
+      $('.loadout', el).innerHTML = `<label>Your eight</label>` + Array.from({ length: 8 }, (_, i) => {
         const a = cfg.picks[i] && ALLIES.find(x => x.id === cfg.picks[i]);
         return a ? `<div class="slot" data-rm="${a.id}" title="Remove ${a.name}"><img src="${A.portraits['ally_' + a.id]}"><span>${a.cost}</span></div>` : `<div class="slot empty"></div>`;
       }).join('');
@@ -161,12 +161,13 @@ export class Screens {
       $('[data-a="go"]', el).disabled = !cfg.picks.length;
     };
     const randomSix = () => {
-      // a sensible random army: a front line, fighters, shooters and a healer, then one wild card
+      // a sensible random army: a front line, fighters, shooters, a healer and support, then two wild cards
       const pool = r => roster.filter(a => ROLE(a) === r && !cfg.picks.includes(a.id));
       const take = r => { const p = pool(r); if (p.length) cfg.picks.push(p[Math.floor(Math.random() * p.length)].id); };
       cfg.picks = [];
-      take('front'); take('melee'); take('ranged'); take('ranged'); take('support');
+      take('front'); take('front'); take('melee'); take('ranged'); take('ranged'); take('support');
       take(['heavy', 'melee', 'ranged', 'front'][Math.floor(Math.random() * 4)]);
+      take(['heavy', 'melee', 'ranged', 'support'][Math.floor(Math.random() * 4)]);
     };
     el.addEventListener('click', e => {
       const t = e.target;
@@ -181,8 +182,8 @@ export class Screens {
         const id = u.dataset.u, a = ALLIES.find(x => x.id === id);
         const i = cfg.picks.indexOf(id);
         if (i >= 0) cfg.picks.splice(i, 1);
-        else if (cfg.picks.length < 6) { cfg.picks.push(id); audio.play('equip', null, 0.4); }
-        else { setInfo(unitInfo(a) + `<em class="full">Your six are chosen. Remove one first.</em>`); return; }
+        else if (cfg.picks.length < 8) { cfg.picks.push(id); audio.play('equip', null, 0.4); }
+        else { setInfo(unitInfo(a) + `<em class="full">Your eight are chosen. Remove one first.</em>`); return; }
         setInfo(unitInfo(a)); save(); render(); return;
       }
       const a = t.closest('[data-a]')?.dataset.a;
@@ -191,7 +192,7 @@ export class Screens {
       if (a === 'go') {
         if (!cfg.picks.length) return;
         const go = () => this.game.startArcade({ hero: cfg.hero, diff: cfg.diff, night: cfg.night, picks: cfg.picks.slice() });
-        if (cfg.picks.length < 6) this.confirm(`March with only ${cfg.picks.length} of six?`, go); else go();
+        if (cfg.picks.length < 8) this.confirm(`March with only ${cfg.picks.length} of eight?`, go); else go();
       }
     });
     el.addEventListener('mouseover', e => {

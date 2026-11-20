@@ -42,13 +42,15 @@ export function loadArcade() {
 }
 export function writeArcade(a) { try { localStorage.setItem(AKEY, JSON.stringify(a)); } catch (e) { /* ignore */ } }
 
+export const ARCADE_PICKS = 8;
+
 // A ready-made army and Warden for an arcade battle on a given night: what a player who had
 // fought through the story to that point would typically have.
 export function arcadeSave(cfg) {
   const n = cfg.night;
   const s = newSave(cfg.hero, cfg.diff);
   s.chapter = n;
-  s.loadout = cfg.picks.slice(0, 6);
+  s.loadout = cfg.picks.slice(0, 8);
   for (const k of ['spareCursed', 'orcs', 'redeemAldous']) s.flags[k] = true;
   const r = Math.max(0, n - 2);
   s.level = 1 + (n - 1) * 2;
