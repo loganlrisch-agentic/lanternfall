@@ -40,9 +40,6 @@ class Game {
     this.makePortraits();
     prog(1);
     this.world.lightning.onThunder = () => audio.play('thunder', null, 0.8);
-    this.input.onLockChange = locked => {
-      if (!locked && this.battle && this.battle.state === 'fight' && !this.paused && this.input.lockWanted && !this.input.lockFailed) this.pause();
-    };
     window.addEventListener('pointerdown', () => audio.init());
     window.addEventListener('keydown', () => audio.init());
     this.applySettings();
@@ -267,31 +264,38 @@ class Game {
 
   // ---------------- automated playtest hooks (?test=battle) ----------------
   autoInput(inp) {
+    // test bot: the hero fights on its own, so the bot only walks it toward the action,
+    // casts spells now and then and calls in support when it can afford it
     const b = this.battle, h = b.hero;
-    const f = { ...this.input.empty, move: { x: 0, y: 0 }, look: { x: 0, y: 0 }, ability: {} };
+    const f = { ...this.input.empty, move: { x: 0, y: 0 }, ability: {} };
     if (!h.alive || b.state !== 'fight') return f;
-    let best = null, bd = 1e9;
-    for (const u of b.units) if (u.team === TEAM.ENEMY && u.alive) { const d = u.pos.distanceTo(h.pos); if (d < bd) { bd = d; best = u; } }
-    const tgt = best ? best.pos : (b.rift.invulnerable ? null : b.rift.pos);
-    if (tgt) {
-      const want = Math.atan2(tgt.x - h.pos.x, tgt.z - h.pos.z);
-      b.cam.yaw = want;
-      const dist = Math.hypot(tgt.x - h.pos.x, tgt.z - h.pos.z);
-      const range = h.cls.melee ? 2.2 : 16;
-      if (dist > range) f.move.y = 1;
-      this.autoT = (this.autoT || 0) + 1;
-      if (dist < range + 2) { if (this.autoT % 3 === 0) f.attackDown = true; if (this.autoT % 3 === 1) f.attackUp = true; f.attackHeld = this.autoT % 3 === 0; }
-      if (this.autoT % 90 === 0) f.ability.Q = true;
-      if (this.autoT % 150 === 0) f.ability.F = true;
-      if (this.autoT % 400 === 0) f.ability.E = true;
-      if (this.autoT % 900 === 0) f.ability.R = true;
+    this.autoT = (this.autoT || 0) + 1;
+    // play like a commander: stay with the army, fight what reaches it
+    if (!h.target && !h.moveTo && this.autoT % 30 === 0) {
+      const post = b.army.units.length ? b.army.anchor.clone().add(new THREE.Vector3(-b.army.depth * 0.5, 0, 0)) : new THREE.Vector3(-55, 0, 0);
+      if (!b.rift.invulnerable && b.army.objective === 'rift') h.moveTo = b.rift.aimPoint(h.pos).clone();
+      else if (h.pos.distanceTo(post) > 6) h.moveTo = post;
     }
-    for (let i = 0; i < b.cards.length; i++) if (b.cp >= b.cards[i].def.cost && b.cards[i].cd <= 0 && Math.random() < 0.02) { f.summon = i; break; }
+    if (this.autoT % 90 === 0) f.ability.Q = true;
+    if (this.autoT % 150 === 0) f.ability.F = true;
+    if (this.autoT % 400 === 0) f.ability.E = true;
+    if (this.autoT % 900 === 0) f.ability.R = true;
+    // call in a balanced army: the affordable card with the fewest of its kind on the field
+    if (Math.random() < 0.03) {
+      let pickI = -1, fewest = 1e9;
+      b.cards.forEach((c, i) => {
+        if (b.coins < c.def.cost || c.cd > 0) return;
+        const n = b.army.units.filter(u => u.def === c.def).length + Math.random() * 0.5;
+        if (n < fewest) { fewest = n; pickI = i; }
+      });
+      if (pickI >= 0) f.summon = pickI;
+    }
     return f;
   }
 
   async runTest() {
     this.testMode = true;
+    this.camOnArmy = params.get('cam') === 'army';
     const ch = +(params.get('ch') || 1);
     this.save = newSave(params.get('hero') || 'knight', params.get('diff') || 'normal');
     this.save.chapter = ch;

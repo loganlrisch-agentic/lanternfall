@@ -22,7 +22,6 @@ export class HUD {
         <div class="hud-bars">
           <div class="hud-name"><span class="n"></span><span class="lvl"></span></div>
           <div class="bar hp"><i></i><b></b></div>
-          <div class="bar st"><i></i></div>
           <div class="bar xp"><i></i></div>
         </div>
       </div>
@@ -35,29 +34,17 @@ export class HUD {
         <div class="hud-boss"><label></label><div class="bar"><i></i><b></b></div></div>
       </div>
       <canvas class="hud-map" width="260" height="104"></canvas>
-      <div class="hud-cmd">
-        <button data-cmd="charge" title="Charge (Z)">${icon('charge', 22)}<span>Charge</span><kbd>Z</kbd></button>
-        <button data-cmd="hold" title="Hold the wall (X)">${icon('hold', 22)}<span>Hold</span><kbd>X</kbd></button>
-        <button data-cmd="rally" title="Follow me (C)">${icon('rally', 22)}<span>Rally</span><kbd>C</kbd></button>
-      </div>
       <div class="hud-bottom">
-        <div class="hud-cp"><div class="cp-orb"><span class="v">0</span><small>CP</small></div><div class="cp-meta"><span class="rate"></span><span class="pop"></span></div></div>
+        <div class="hud-cp"><div class="cp-orb" title="War chest: coin builds up over time and from kills"><span class="v">0</span><small>COIN</small></div><div class="cp-meta"><span class="rate"></span><span class="pop"></span></div></div>
         <div class="hud-cards"></div>
       </div>
       <div class="hud-abil"></div>
-      <div class="hud-touch">
-        <div class="joy"><div class="knob"></div></div>
-        <button class="t-attack">${icon('attack', 34)}</button>
-        <button class="t-dodge">${icon('dodge', 26)}</button>
-        <button class="t-block">${icon('shield', 24)}</button>
-      </div>
       <div class="hud-toast"></div>
       <div class="hud-banner"><h1></h1><p></p></div>
       <div class="hud-voice"></div>
       <div class="hud-respawn"></div>
-      <div class="hud-cross"></div>
       <div class="hud-flash"></div>
-      <div class="hud-help">LMB attack · hold for heavy · RMB block/aim · Space dodge · Shift sprint · Q E F R abilities · 1-8 summon · Z X C orders · Esc pause</div>
+      <div class="hud-help">Click the ground to move · click an enemy to attack · Q E F R spells · 1–8 call support · wheel to zoom · Esc pause</div>
     `;
     root.appendChild(this.el);
     this.overlay = document.createElement('canvas');
@@ -69,7 +56,6 @@ export class HUD {
     this.toastT = 0; this.bannerT = 0; this.voiceT = 0; this.flashT = 0;
     this.boss = null;
     this.hurtV = 0;
-    this.el.querySelectorAll('.hud-cmd button').forEach(b => b.addEventListener('click', () => { input.edge('TouchCmd_' + b.dataset.cmd); audio.play('ui'); }));
     this.setupTouch();
     window.addEventListener('resize', () => this.resize());
     this.resize();
@@ -86,49 +72,7 @@ export class HUD {
   }
 
   setupTouch() {
-    const t = this.input.touch;
-    const joy = $('.joy', this.el), knob = $('.knob', this.el);
-    let jid = null, jx = 0, jy = 0, lid = null, lx = 0, ly = 0;
-    const R = 50;
-    this.el.addEventListener('touchstart', e => {
-      for (const tc of e.changedTouches) {
-        const tgt = tc.target;
-        if (tgt.closest('button') || tgt.closest('.hud-card')) continue;
-        if (tc.clientX < window.innerWidth * 0.4 && jid === null) {
-          jid = tc.identifier; jx = tc.clientX; jy = tc.clientY;
-          joy.style.left = (jx - 60) + 'px'; joy.style.top = (jy - 60) + 'px'; joy.classList.add('on');
-        } else if (lid === null) { lid = tc.identifier; lx = tc.clientX; ly = tc.clientY; }
-      }
-    }, { passive: true });
-    this.el.addEventListener('touchmove', e => {
-      for (const tc of e.changedTouches) {
-        if (tc.identifier === jid) {
-          let dx = tc.clientX - jx, dy = tc.clientY - jy;
-          const d = Math.hypot(dx, dy);
-          if (d > R) { dx = dx / d * R; dy = dy / d * R; }
-          knob.style.transform = `translate(${dx}px, ${dy}px)`;
-          t.move.x = dx / R; t.move.y = -dy / R;
-        } else if (tc.identifier === lid) {
-          t.look.x += (tc.clientX - lx) * 2.2; t.look.y += (tc.clientY - ly) * 2.2;
-          lx = tc.clientX; ly = tc.clientY;
-        }
-      }
-    }, { passive: true });
-    const end = e => {
-      for (const tc of e.changedTouches) {
-        if (tc.identifier === jid) { jid = null; t.move.x = t.move.y = 0; knob.style.transform = ''; joy.classList.remove('on'); }
-        if (tc.identifier === lid) lid = null;
-      }
-    };
-    this.el.addEventListener('touchend', end); this.el.addEventListener('touchcancel', end);
-    const hold = (sel, on, off) => {
-      const b = $(sel, this.el);
-      b.addEventListener('touchstart', e => { e.preventDefault(); on(); }, { passive: false });
-      b.addEventListener('touchend', e => { e.preventDefault(); off && off(); }, { passive: false });
-    };
-    hold('.t-attack', () => { t.attack = true; this.input.edge('TouchAttack'); }, () => { t.attack = false; this.input.edge('TouchAttackUp'); });
-    hold('.t-dodge', () => this.input.edge('TouchDodge'));
-    hold('.t-block', () => { t.block = true; }, () => { t.block = false; });
+    // taps on the battlefield arrive as clicks through Input; buttons and cards handle themselves
     if (this.input.isTouch) this.el.classList.add('touch');
   }
 
@@ -194,7 +138,6 @@ export class HUD {
     $('.hud-name .lvl', this.el).textContent = 'Lv ' + hero.level;
     $('.bar.hp i', this.el).style.width = (hero.hp / hero.maxHp * 100) + '%';
     $('.bar.hp b', this.el).textContent = `${Math.ceil(hero.hp)} / ${hero.maxHp}`;
-    $('.bar.st i', this.el).style.width = (hero.stamina / hero.maxStamina * 100) + '%';
     $('.bar.xp i', this.el).style.width = ((hero.xpPool || 0) / hero.xpToNext() * 100) + '%';
     // wave
     const w = B.waveIdx;
@@ -210,19 +153,18 @@ export class HUD {
       if (!this.boss.alive) this.bossBar(null);
     }
     // cp & cards
-    $('.cp-orb .v', this.el).textContent = Math.floor(B.cp);
-    $('.cp-orb', this.el).style.setProperty('--fill', (B.cp / B.cpMax * 100) + '%');
-    $('.cp-meta .rate', this.el).textContent = `+${(B.cpRate || 0).toFixed(1)}/s`;
+    $('.cp-orb .v', this.el).textContent = Math.floor(B.coins);
+    $('.cp-orb', this.el).style.setProperty('--fill', (B.coins / B.coinMax * 100) + '%');
+    $('.cp-meta .rate', this.el).textContent = `+${(B.coinRate || 0).toFixed(1)}/s`;
     $('.cp-meta .pop', this.el).textContent = `Army ${B.pop}/${B.popCap}`;
     for (const c of B.cards) {
       if (!c.el) continue;
-      const can = B.cp >= c.def.cost && c.cd <= 0;
+      const can = B.coins >= c.def.cost && c.cd <= 0;
       c.el.classList.toggle('ready', can);
-      c.el.classList.toggle('poor', B.cp < c.def.cost);
+      c.el.classList.toggle('poor', B.coins < c.def.cost);
       const cd = c.el.querySelector('.cd');
       cd.style.height = c.cd > 0 ? (c.cd / c.def.cd * 100) + '%' : '0%';
     }
-    this.el.querySelectorAll('.hud-cmd button').forEach(b => b.classList.toggle('active', b.dataset.cmd === B.order));
     // abilities
     hero.cls.abilities.forEach((id, i) => {
       const e = this.abEls[i];
@@ -238,7 +180,6 @@ export class HUD {
     if (this.flashT > 0) { this.flashT -= dt; const f = $('.hud-flash', this.el); f.style.opacity = Math.max(0, parseFloat(f.style.opacity) - dt * 2); }
     const resp = $('.hud-respawn', this.el);
     if (!hero.alive && B.state === 'fight') { resp.classList.add('on'); resp.textContent = `Returning to the keep in ${Math.ceil(B.respawnT)}…`; } else resp.classList.remove('on');
-    $('.hud-cross', this.el).classList.toggle('on', B.state === 'fight' && (this.input.locked || this.input.isTouch));
     // hurt vignette
     this.hurtV = Math.max(0, this.hurtV - dt * 1.2);
     const lowHp = hero.alive ? clamp(1 - hero.hp / hero.maxHp / 0.35, 0, 1) * 0.5 : 0.6;
@@ -323,7 +264,7 @@ export class HUD {
     }
     const h = B.hero;
     if (h.alive) {
-      c.save(); c.translate(X(h.pos.x), Z(h.pos.z)); c.rotate(-B.cam.yaw + Math.PI);
+      c.save(); c.translate(X(h.pos.x), Z(h.pos.z)); c.rotate(-h.facing + Math.PI);
       c.fillStyle = '#fff'; c.beginPath(); c.moveTo(0, -6); c.lineTo(4, 4); c.lineTo(-4, 4); c.closePath(); c.fill(); c.restore();
     }
   }

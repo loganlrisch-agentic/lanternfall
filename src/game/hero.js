@@ -1,9 +1,9 @@
-// The player's hero: third-person control, combos, heavy attacks, blocking, dodging, stamina and abilities.
+// The player's commander: click-to-move, automatic attacks and one-tap spells that pick their own targets.
 import * as THREE from 'three';
 import { Unit } from './unit.js';
 import { HEROES, ABILITIES } from './data/units.js';
-import { TEAM } from './config.js';
-import { clamp, angleLerp, angleDiff, rand } from '../core/util.js';
+import { TEAM, MAP } from './config.js';
+import { clamp, angleLerp, rand } from '../core/util.js';
 
 const _v = new THREE.Vector3(), _w = new THREE.Vector3();
 
@@ -19,16 +19,13 @@ export class Hero extends Unit {
     this.xpPool = save.xp || 0;
     this.cls = base;
     this.classId = classId;
-    this.stamina = 100; this.maxStamina = 100; this.stamDelay = 0;
     this.cooldowns = {}; for (const a of base.abilities) this.cooldowns[a] = 0;
     this.talents = save.talents || {};
-    this.combo = 0; this.comboWindow = 0;
+    this.combo = 0;
     this.attackLock = 0;
-    this.charge = 0; this.charging = false;
-    this.dodge = null;
-    this.blocking = false;
-    this.aimYaw = this.facing;
-    this.moveDir = new THREE.Vector3();
+    this.atkTimer = 0;
+    this.moveTo = null;
+    this.range = base.melee ? base.reach : base.range;
     this.lifesteal = 0;
     this.critNext = false;
     this.spin = null;
@@ -59,92 +56,62 @@ export class Hero extends Unit {
   abilityPower(ab) { return 1 + 0.25 * this.rank(ab); }
   abilityCd(ab) { return ABILITIES[ab].cd * (1 - 0.1 * this.rank(ab)); }
 
-  blockFactor(dir) {
-    if (!this.blocking) return 1;
-    const fx = Math.sin(this.facing), fz = Math.cos(this.facing);
-    const dot = -(dir.x * fx + dir.z * fz);
-    if (dot > 0.2) { this.spendStamina(6); this.B.sfx('clang', this.pos, 0.5); return 0.25; }
-    return 1;
-  }
+  blockFactor() { return 1; }
 
-  spendStamina(a) { this.stamina = Math.max(0, this.stamina - a); this.stamDelay = 0.75; }
-
-  // called by Battle every frame with the input snapshot
+  // Commander controls, Ink & Valor style: click the ground to walk there, click an
+  // enemy to fight it, otherwise the hero fights whatever comes near on its own.
   control(dt, inp, cam) {
     if (!this.alive) return;
     const B = this.B;
     for (const k in this.cooldowns) this.cooldowns[k] = Math.max(0, this.cooldowns[k] - dt);
-    this.stamDelay -= dt;
-    if (this.stamDelay <= 0) this.stamina = Math.min(this.maxStamina, this.stamina + dt * (this.blocking ? 8 : 26));
-    this.comboWindow -= dt;
+    this.atkTimer = (this.atkTimer || 0) - dt;
     this.attackLock -= dt;
-    this.aimYaw = cam.yaw;
     const stunned = this.disabled;
 
-    // movement intent in camera space
-    const fx = Math.sin(cam.yaw), fz = Math.cos(cam.yaw);
-    const rx = -fz, rz = fx;
-    let mx = inp.move.x * rx + inp.move.y * fx, mz = inp.move.x * rz + inp.move.y * fz;
-    const ml = Math.hypot(mx, mz);
-    if (ml > 1) { mx /= ml; mz /= ml; }
-    this.moveDir.set(mx, 0, mz);
+    // orders from the player
+    if (inp.click) this.handleClick(inp.click, cam);
+    const keyMove = inp.move.x || inp.move.y;
+    if (keyMove) { this.moveTo = null; this.target = null; }
 
-    // dodge
-    if (inp.dodge && !this.dodge && !stunned && this.stamina >= 20) {
-      const dx = ml > 0.1 ? mx / ml : Math.sin(this.facing), dz = ml > 0.1 ? mz / ml : Math.cos(this.facing);
-      this.dodge = { x: dx, z: dz, t: 0.42 };
-      this.spendStamina(22);
-      this.addStatus('invuln', 0.32);
-      const rel = angleDiff(this.facing, Math.atan2(dx, dz));
-      const anim = Math.abs(rel) < 0.8 ? 'Dodge_Forward' : Math.abs(rel) > 2.3 ? 'Dodge_Backward' : rel > 0 ? 'Dodge_Left' : 'Dodge_Right';
-      this.animator.play(anim, { ts: 1.0 });
-      this.pendingHit = null; this.charging = false; this.spin = null;
-      B.sfx('cloth', this.pos, 0.6);
-    }
-
-    // block (melee classes)
-    const canBlock = this.cls.block && !this.dodge && !stunned && this.attackLock <= 0;
-    const wantBlock = canBlock && inp.block && this.stamina > 2;
-    if (wantBlock !== this.blocking) {
-      this.blocking = wantBlock;
-      if (wantBlock) this.animator.play(this.cls.block, { ts: 1, hold: true });
-      else this.animator.cancelShot();
-    }
-
-    // attacks
-    if (!stunned && !this.dodge && !this.blocking) {
-      if (inp.attackDown) { this.charging = true; this.charge = 0; }
-      if (this.charging && inp.attackHeld) {
-        this.charge += dt;
-        if (this.charge > 0.32 && !this.chargeFx) { this.chargeFx = true; B.sfx('charge', this.pos, 0.5); }
-        if (this.charge > 0.32 && Math.random() < dt * 30) B.fx.burst(this.handPos(), { count: 1, color: this.classId === 'mage' ? 0xff9a3a : 0xffe6b0, size: 0.35, speed: 0.6, life: 0.4, gravity: -1 });
-      }
-      if (this.charging && inp.attackUp) {
-        this.charging = false; this.chargeFx = false;
-        if (this.charge > 0.32 && this.stamina >= 22) this.heavyAttack(cam);
-        else this.basicAttack(cam);
-      }
-      if (!inp.attackHeld && this.charging && !inp.attackUp) this.charging = false;
-    }
-    // abilities
-    if (!stunned && !this.dodge) {
+    // spells: one tap each, they find their own targets
+    if (!stunned) {
       const keys = ['Q', 'E', 'F', 'R'];
-      this.cls.abilities.forEach((ab, i) => { if (inp.ability[keys[i]] && this.cooldowns[ab] <= 0) this.cast(ab, cam); });
+      this.cls.abilities.forEach((ab, i) => { if (inp.ability[keys[i]]) this.tryCast(ab); });
+    }
+
+    // keep a sensible target
+    const t0 = this.target;
+    if (t0 && (!t0.alive || (t0.isStructure && t0.invulnerable) || t0.stealth)) this.target = null;
+    if (!this.target && !this.moveTo && !keyMove && !this.dash && !this.leaping) this.target = this.findTarget();
+
+    // decide where to go
+    let mx = 0, mz = 0;
+    if (keyMove) {
+      // camera looks north from the south: screen right = +x, screen up = -z
+      mx = inp.move.x; mz = -inp.move.y;
+      const l = Math.hypot(mx, mz); mx /= l; mz /= l;
+    } else if (this.moveTo) {
+      const dx = this.moveTo.x - this.pos.x, dz = this.moveTo.z - this.pos.z, d = Math.hypot(dx, dz);
+      if (d < 0.5) { this.moveTo = null; this.clearMarker(); }
+      else { mx = dx / d; mz = dz / d; }
+    } else if (this.target) {
+      const t = this.target, d = this.distTo(t);
+      const reach = this.attackRange() + (t.isStructure ? 0.4 : (t.radius || 0.6) * 0.5);
+      if (d > reach) {
+        const gp = t.isStructure ? t.aimPoint(this.pos) : t.pos;
+        const dx = gp.x - this.pos.x, dz = gp.z - this.pos.z, dl = Math.hypot(dx, dz) || 1;
+        mx = dx / dl; mz = dz / dl;
+      } else if (!stunned) {
+        this.faceToward(t.isStructure ? t.aimPoint(this.pos) : t.pos, dt, 14);
+        if (this.atkTimer <= 0 && !this.pendingHit) this.autoAttack(t);
+      }
     }
 
     // velocity
     let speed = this.speed;
-    if (inp.sprint && ml > 0.1 && !this.blocking && this.stamina > 1 && !this.charging) { speed *= 1.45; this.stamina = Math.max(0, this.stamina - dt * 14); this.stamDelay = 0.4; }
-    if (this.blocking) speed *= 0.42;
-    if (this.charging && this.charge > 0.32) speed *= 0.5;
-    if (this.attackLock > 0 && this.cls.melee) speed *= 0.3;
+    if (this.attackLock > 0) speed *= 0.25;
     if (this.spin) speed *= 0.65;
     let vx = mx * speed, vz = mz * speed;
-    if (this.dodge) {
-      this.dodge.t -= dt;
-      vx = this.dodge.x * 13; vz = this.dodge.z * 13;
-      if (this.dodge.t <= 0) this.dodge = null;
-    }
     if (this.dash) {
       this.dash.t -= dt;
       vx = this.dash.x * this.dash.speed; vz = this.dash.z * this.dash.speed;
@@ -157,23 +124,14 @@ export class Hero extends Unit {
     this.pos.x += vx * dt; this.pos.z += vz * dt;
     B.collide(this);
     if (!this.leaping) this.pos.y = B.h(this.pos.x, this.pos.z);
-
-    // facing
-    const combatFacing = this.charging || this.blocking || this.attackLock > 0 || this.spin || inp.aim;
-    if (combatFacing || (!this.cls.melee && inp.attackHeld)) this.facing = angleLerp(this.facing, cam.yaw, Math.min(1, dt * 16));
-    else if (ml > 0.1 && !this.dodge) this.facing = angleLerp(this.facing, Math.atan2(mx, mz), Math.min(1, dt * 12));
+    const sp = Math.hypot(vx, vz);
+    if (sp > 0.5 && !this.dash && this.attackLock <= 0) this.facing = angleLerp(this.facing, Math.atan2(vx, vz), Math.min(1, dt * 12));
 
     // locomotion animation
     const anim = this.animator;
     if (!anim.shot) {
-      const sp = Math.hypot(vx, vz);
       if (sp > 0.5) {
-        if (combatFacing) {
-          const rel = angleDiff(this.facing, Math.atan2(vx, vz));
-          if (Math.abs(rel) < 0.8) anim.loop(this.cls.anim === 'bow' ? 'Running_HoldingBow' : 'Running_A', clamp(sp / 5.5, 0.7, 1.5));
-          else if (Math.abs(rel) > 2.3) anim.loop('Walking_Backwards', clamp(sp / 3, 0.7, 1.5));
-          else anim.loop(rel > 0 ? 'Running_Strafe_Left' : 'Running_Strafe_Right', clamp(sp / 5, 0.7, 1.4));
-        } else anim.loop(this.cls.anim === 'bow' ? 'Running_HoldingBow' : 'Running_A', clamp(sp / 5.6, 0.7, 1.6));
+        anim.loop(this.cls.anim === 'bow' ? 'Running_HoldingBow' : 'Running_A', clamp(sp / 5.6, 0.7, 1.6));
         this.stepT = (this.stepT || 0) - dt * sp;
         if (this.stepT <= 0) { this.stepT = 2.6; B.sfx('step', this.pos, 0.25); }
       } else anim.loop(this.anims.idle, 1);
@@ -186,101 +144,74 @@ export class Hero extends Unit {
     if (this.timers) for (let i = this.timers.length - 1; i >= 0; i--) { const t = this.timers[i]; t.t -= dt; if (t.t <= 0) { this.timers.splice(i, 1); t.fn(); } }
   }
 
+  handleClick(c, cam) {
+    const B = this.B;
+    const picked = B.pickAt(c.x, c.y);
+    if (picked && picked.team !== this.team) {
+      this.target = picked; this.moveTo = null;
+      B.markTarget(picked);
+      B.sfx('ui', null, 0.25);
+      return;
+    }
+    const p = cam.groundAt(c.x, c.y);
+    p.x = clamp(p.x, MAP.xMin + 2, MAP.xMax - 2); p.z = clamp(p.z, -MAP.playZ, MAP.playZ);
+    this.moveTo = p; this.target = null;
+    B.markMove(p);
+  }
+  clearMarker() { this.B.markMove(null); }
+
+  attackRange() { return this.cls.melee ? this.cls.reach : this.cls.range; }
+  aggroRange() { return this.cls.melee ? 10 : this.cls.range + 2; }
+
+  findTarget() {
+    const B = this.B, r = this.aggroRange();
+    let best = null, bd = Infinity;
+    for (const u of B.query(this.pos.x, this.pos.z, r + 2)) {
+      if (u.team === this.team || !u.alive || u.stealth) continue;
+      const d = Math.hypot(u.pos.x - this.pos.x, u.pos.z - this.pos.z) - (u.target === this ? 2 : 0);
+      if (d < bd && d < r) { bd = d; best = u; }
+    }
+    if (!best && B.rift && !B.rift.invulnerable && B.rift.distTo(this.pos) < r) best = B.rift;
+    return best;
+  }
+
+  faceToward(p, dt, rate = 10) {
+    this.facing = angleLerp(this.facing, Math.atan2(p.x - this.pos.x, p.z - this.pos.z), Math.min(1, dt * rate));
+  }
+
+  autoAttack(t) {
+    const cls = this.cls;
+    const name = cls.combo[this.combo % cls.combo.length];
+    this.combo++;
+    const dur = this.animator.dur(name);
+    const interval = cls.rate / (1 + this.buffs.atk) / (this.rageBuff ? 1.5 : 1);
+    const ts = clamp(dur / (interval * (cls.release ? 0.55 : 0.9)), 1, 2.6);
+    this.animator.play(name, { ts });
+    this.atkTimer = interval;
+    this.attackLock = Math.min(interval * 0.6, dur / ts * 0.7);
+    const tp = t.isStructure ? t.aimPoint(this.pos) : t.pos;
+    this.facing = Math.atan2(tp.x - this.pos.x, tp.z - this.pos.z);
+    const hitT = (this.anims.hitT || 0.4) * dur / ts;
+    if (cls.melee) {
+      const strong = this.combo % cls.combo.length === 0;
+      this.pendingHit = { t: hitT, fn: () => this.meleeSweep(this.dmg * (strong ? 1.3 : 1), cls.reach, cls.arc) };
+      this.B.sfx('swing', this.pos, 0.6);
+    } else {
+      this.pendingHit = { t: cls.release ? dur / ts * 0.92 : hitT * 0.6, fn: () => {
+        if (!t.alive && !t.isStructure) return;
+        if (cls.release) this.animator.play(cls.release, { ts: 1.5 });
+        let dmg = this.dmg;
+        if (this.critNext) { dmg *= 2.5; this.critNext = false; }
+        this.B.fireProjectile(this, t, cls.projectile, dmg, { aoe: this.classId === 'mage' ? 1.8 : 0, speedMul: 1.4 });
+      } };
+    }
+  }
+
   after(t, fn) { (this.timers || (this.timers = [])).push({ t, fn }); }
 
   handPos() {
     const b = this.root.getObjectByName('handslotr') || this.root;
     return b.getWorldPosition(new THREE.Vector3());
-  }
-
-  aimTarget(cam, maxRange = 40) {
-    // enemy nearest to the camera's aim point, with generous assist
-    const B = this.B;
-    const ap = cam.aimPoint;
-    let best = null, bestD = 4.5 * 4.5;
-    for (const u of B.query(ap.x, ap.z, 6)) {
-      if (u.team === this.team || !u.alive) continue;
-      const d = (u.pos.x - ap.x) ** 2 + (u.pos.z - ap.z) ** 2;
-      if (d < bestD) { bestD = d; best = u; }
-    }
-    if (!best) {
-      // fallback: nearest enemy roughly in front
-      const fx = Math.sin(cam.yaw), fz = Math.cos(cam.yaw);
-      let bs = Infinity;
-      for (const u of B.query(this.pos.x, this.pos.z, maxRange)) {
-        if (u.team === this.team || !u.alive) continue;
-        const dx = u.pos.x - this.pos.x, dz = u.pos.z - this.pos.z;
-        const d = Math.hypot(dx, dz);
-        const dot = (dx * fx + dz * fz) / (d || 1);
-        if (dot < 0.86) continue;
-        const s = d * (2 - dot);
-        if (s < bs) { bs = s; best = u; }
-      }
-    }
-    if (!best && B.rift && !B.rift.invulnerable && B.rift.distTo(ap) < 8) best = B.rift;
-    return best;
-  }
-
-  basicAttack(cam) {
-    if (this.attackLock > 0.1 || this.pendingHit) return;
-    const cls = this.cls;
-    const cost = cls.melee ? 6 : 3;
-    if (this.stamina < cost * 0.5) return;
-    this.spendStamina(cost);
-    this.facing = cam.yaw;
-    if (this.comboWindow <= 0) this.combo = 0;
-    const name = cls.combo[this.combo % cls.combo.length];
-    this.combo++;
-    const dur = this.animator.dur(name);
-    const atkMul = 1 + this.buffs.atk;
-    const ts = (cls.melee ? 1.45 : 1.6) * atkMul;
-    this.animator.play(name, { ts });
-    this.attackLock = dur / ts * 0.75;
-    this.comboWindow = dur / ts + 0.45;
-    const hitT = (this.anims.hitT || 0.4) * dur / ts;
-    if (cls.melee) {
-      this.pendingHit = { t: hitT, fn: () => this.meleeSweep(this.dmg * (this.combo % cls.combo.length === 0 ? 1.35 : 1), cls.reach, cls.arc) };
-      this.B.sfx('swing', this.pos, 0.6);
-    } else {
-      const target = this.aimTarget(cam);
-      const aim = cam.aimPoint.clone();
-      this.pendingHit = { t: hitT * 0.6, fn: () => {
-        let dmg = this.dmg;
-        if (this.critNext) { dmg *= 2.5; this.critNext = false; }
-        this.B.fireProjectile(this, target, cls.projectile, dmg, { point: target ? null : aim, aoe: this.classId === 'mage' ? 1.8 : 0, speedMul: 1.4 });
-      } };
-    }
-  }
-
-  heavyAttack(cam) {
-    const h = this.cls.heavy;
-    this.spendStamina(24);
-    this.facing = cam.yaw;
-    const dur = this.animator.dur(h.anim);
-    const ts = 1.25;
-    this.animator.play(h.anim, { ts });
-    this.attackLock = dur / ts * 0.8;
-    const hitT = (this.anims.hitT || 0.42) * dur / ts;
-    const B = this.B;
-    if (h.kind === 'bash') {
-      this.pendingHit = { t: hitT, fn: () => { this.meleeSweep(this.dmg * h.mult, 3.2, 1.8, { stun: h.stun, knock: 6 }); B.shake(0.2, this.pos); B.sfx('clang', this.pos, 0.9); } };
-    } else if (h.kind === 'slam') {
-      this.pendingHit = { t: hitT, fn: () => {
-        const p = this.pos.clone().add(_v.set(Math.sin(this.facing) * 2, 0, Math.cos(this.facing) * 2));
-        B.cleave(this, p, 3.6, this.dmg * h.mult, { stun: h.stun, melee: true });
-        B.fx.ring(p, { color: 0xc8a070, radius: 4, life: 0.5 });
-        B.fx.burst(p, { count: 18, color: 0x6a5a48, normal: true, size: 1.2, speed: 4, life: 0.9, gravity: 3 });
-        B.shake(0.35, this.pos); B.sfx('thud', p, 1);
-      } };
-    } else if (h.kind === 'pierce') {
-      const target = this.aimTarget(cam);
-      const aim = cam.aimPoint.clone();
-      this.pendingHit = { t: hitT * 0.5, fn: () => B.fireProjectile(this, target, 'arrow', this.dmg * h.mult, { point: target ? null : aim, pierce: 99, line: true, speedMul: 2.2, glow: true }) };
-    } else if (h.kind === 'fireball') {
-      const target = this.aimTarget(cam);
-      const aim = cam.aimPoint.clone();
-      this.pendingHit = { t: hitT, fn: () => B.fireProjectile(this, target, 'fireball', this.dmg * h.mult, { point: target ? null : aim, aoe: 3.8 }) };
-    }
   }
 
   meleeSweep(dmg, reach, arc, extra = {}) {
@@ -294,7 +225,7 @@ export class Hero extends Unit {
       if (d > reach) continue;
       const dot = (dx * fx + dz * fz) / (Math.hypot(dx, dz) || 1);
       if (dot < Math.cos(arc / 2) && d > 0.6) continue;
-      const knock = extra.knock ? _v.set(dx, 0, dz).normalize().multiplyScalar(extra.knock).clone() : _v.set(dx, 0, dz).normalize().multiplyScalar(1.6).clone();
+      const knock = _v.set(dx, 0, dz).normalize().multiplyScalar(extra.knock || 1.6).clone();
       u.takeDamage(dmg * this.damageMult(u), this, { melee: true, knock, dir: _w.set(dx, 0, dz).normalize().clone() });
       if (extra.stun) u.addStatus('stun', extra.stun);
       B.hitSpark(u, this);
@@ -318,23 +249,84 @@ export class Hero extends Unit {
     if (s.t <= 0) { this.spin = null; this.animator.cancelShot(); }
   }
 
+  // ---------------- auto-targeting for spells ----------------
+  enemiesWithin(x, z, r) {
+    const out = [];
+    for (const u of this.B.query(x, z, r + 1)) if (u.team !== this.team && u.alive && !u.stealth && Math.hypot(u.pos.x - x, u.pos.z - z) <= r) out.push(u);
+    return out;
+  }
+  nearestEnemy(r) {
+    const t = this.target;
+    if (t && t.alive && !t.isStructure && this.distTo(t) <= r) return t;
+    let best = null, bd = r;
+    for (const u of this.enemiesWithin(this.pos.x, this.pos.z, r)) { const d = Math.hypot(u.pos.x - this.pos.x, u.pos.z - this.pos.z); if (d < bd) { bd = d; best = u; } }
+    return best;
+  }
+  // centre of the thickest knot of enemies within range (the rift counts when it is open)
+  bestCluster(range, radius) {
+    const cands = this.enemiesWithin(this.pos.x, this.pos.z, range);
+    let best = null, bestScore = 0;
+    for (const c of cands) {
+      const n = this.enemiesWithin(c.pos.x, c.pos.z, radius);
+      let cx = 0, cz = 0; for (const u of n) { cx += u.pos.x; cz += u.pos.z; }
+      cx /= n.length; cz /= n.length;
+      const score = n.reduce((a, u) => a + (u.isLarge || u.isBoss ? 2.5 : 1), 0) - Math.hypot(c.pos.x - this.pos.x, c.pos.z - this.pos.z) * 0.02;
+      if (score > bestScore) { bestScore = score; best = new THREE.Vector3(cx, 0, cz); }
+    }
+    const rift = this.B.rift;
+    if (!best && rift && !rift.invulnerable && rift.distTo(this.pos) < range) best = rift.aimPoint(this.pos).clone();
+    if (best) best.y = this.B.h(best.x, best.z);
+    return best;
+  }
+
+  tryCast(ab) {
+    if (this.cooldowns[ab] > 0) { this.B.sfx('ui', null, 0.15); return false; }
+    if (this.dash || this.leaping) return false;
+    const ok = this.cast(ab);
+    if (!ok) { this.B.hud.toast('No enemies in reach.', 1.0); this.B.sfx('ui', null, 0.2); }
+    return ok;
+  }
+
   // ---------------- abilities ----------------
-  cast(ab, cam) {
+  cast(ab) {
     const B = this.B;
     const P = this.abilityPower(ab);
-    const aim = cam.aimPoint.clone();
-    const yaw = cam.yaw;
+    // work out where the spell goes before committing to it
+    const AREA = { volley: [32, 6], snare: [24, 5], ravens: [30, 12], sunfall: [34, 9], leapSlam: [16, 4.6] };
+    const AIMED = { shieldCharge: 14, lanternfire: 10 };
+    let aim = null, yaw = this.facing;
+    if (AREA[ab]) {
+      aim = this.bestCluster(AREA[ab][0], AREA[ab][1]);
+      if (!aim) return false;
+      yaw = Math.atan2(aim.x - this.pos.x, aim.z - this.pos.z);
+    } else if (AIMED[ab]) {
+      const t = this.nearestEnemy(AIMED[ab]);
+      if (!t) return false;
+      aim = t.pos.clone();
+      yaw = Math.atan2(aim.x - this.pos.x, aim.z - this.pos.z);
+    } else if (ab === 'blink' || ab === 'shadowRoll') {
+      // slip away from the nearest threat, back toward your own lines
+      const t = this.nearestEnemy(14);
+      let ax = -1, az = 0;
+      if (t) { ax = this.pos.x - t.pos.x; az = this.pos.z - t.pos.z; const l = Math.hypot(ax, az) || 1; ax /= l; az /= l; ax = ax * 0.6 - 0.4; const l2 = Math.hypot(ax, az) || 1; ax /= l2; az /= l2; }
+      const dist = ab === 'blink' ? 12 : 5;
+      aim = new THREE.Vector3(clamp(this.pos.x + ax * dist, MAP.castleX + 4, MAP.xMax - 4), 0, clamp(this.pos.z + az * dist, -MAP.playZ, MAP.playZ));
+      aim.y = B.h(aim.x, aim.z);
+      yaw = t ? Math.atan2(t.pos.x - this.pos.x, t.pos.z - this.pos.z) : Math.PI / 2;
+    }
+    if (!aim) aim = this.pos.clone();
     this.facing = yaw;
     const fx = Math.sin(yaw), fz = Math.cos(yaw);
     const clampAim = (max) => { const d = Math.hypot(aim.x - this.pos.x, aim.z - this.pos.z); if (d > max) { aim.x = this.pos.x + (aim.x - this.pos.x) / d * max; aim.z = this.pos.z + (aim.z - this.pos.z) / d * max; } aim.y = B.h(aim.x, aim.z); return aim; };
     this.cooldowns[ab] = this.abilityCd(ab);
+    this.moveTo = null;
     B.onAbility(this, ab);
     switch (ab) {
       case 'shieldCharge': {
         this.animator.play('Melee_1H_Attack_Stab', { ts: 1.1 });
         const hit = new Set();
         this.addStatus('invuln', 0.45);
-        this.dash = { x: fx, z: fz, speed: 22, t: 0.45, onTick: () => {
+        this.dash = { x: fx, z: fz, speed: 22, t: clamp(Math.hypot(aim.x - this.pos.x, aim.z - this.pos.z) / 22 + 0.08, 0.2, 0.55), onTick: () => {
           for (const u of B.query(this.pos.x, this.pos.z, 2.4)) {
             if (u.team === this.team || !u.alive || hit.has(u)) continue;
             hit.add(u);
@@ -395,7 +387,7 @@ export class Hero extends Unit {
       }
       case 'shadowRoll': {
         this.animator.play('Dodge_Backward', { ts: 1 });
-        this.dash = { x: -fx, z: -fz, speed: 14, t: 0.35 };
+        { const rx = aim.x - this.pos.x, rz = aim.z - this.pos.z, rl = Math.hypot(rx, rz) || 1; this.dash = { x: rx / rl, z: rz / rl, speed: 14, t: 0.35 }; }
         this.stealth = true; this.critNext = true;
         this.addStatus('invuln', 0.4);
         B.fx.burst(this.pos.clone().setY(this.pos.y + 0.8), { count: 30, color: 0x2a2a30, normal: true, size: 2.2, speed: 2, spread: 1, up: 0.6, gravity: -0.3, life: 1.6, grow: 1.2, alpha: 0.7 });
@@ -514,6 +506,7 @@ export class Hero extends Unit {
         break;
       }
     }
+    return true;
   }
 
   update(dt) {

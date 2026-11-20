@@ -136,6 +136,7 @@ export class Unit {
       if (d.glow) vopts.glowColor = d.glow;
       const proto = getVariant(model, vopts);
       const inst = spawnCharacter(proto, { weapons: d.weapons || [], scale: d.scale || 0.85, headScale: opts.headScale ?? 0.68 });
+      this.hasBow = (d.weapons || []).some(w => w.bow);
       this.root = inst.root;
       this.meshes = inst.meshes;
       this.rig = inst.rig;
@@ -262,7 +263,7 @@ export class Unit {
       this.stateT -= dt;
       if (this.stateT <= 0) this.state = 'idle';
     } else if (!this.isHero) {
-      this.think(dt);
+      if (this.army) this.thinkArmy(dt); else this.think(dt);
     }
     this.updatePhysics(dt);
     if (this.animator) {
@@ -279,6 +280,16 @@ export class Unit {
       this.syncTransform();
     }
     if (this.deathT > 4.2) this.remove = true;
+  }
+
+  // where a shot leaves from: the bow hand for archers, otherwise null (projectiles pick a default)
+  shotOrigin() {
+    if (!this.hasBow) return null;
+    const bone = this._bowBone || (this._bowBone = this.root.getObjectByName('handslotl'));
+    if (!bone) return null;
+    const p = bone.getWorldPosition(new THREE.Vector3());
+    p.x += Math.sin(this.facing) * 0.25; p.z += Math.cos(this.facing) * 0.25;
+    return p;
   }
 
   // ---------------- AI ----------------
@@ -314,6 +325,98 @@ export class Unit {
     }
     if (goal && !this.pendingHit) this.moveToward(goal, dt);
     else this.desired = 0;
+  }
+
+  // ---- formation soldiers: hold the slot, break off to fight nearby foes, then re-form ----
+  thinkArmy(dt) {
+    const B = this.B, A = this.army;
+    this.retarget -= dt;
+    const slot = A.slotPos(this, this._slot || (this._slot = new THREE.Vector3()));
+    if (this.target && (!this.target.alive || (this.target.isStructure && this.target.invulnerable))) this.target = null;
+    // melee won't chase far from the line
+    if (this.target && !this.target.isStructure && !this.isRanged) {
+      const tl = Math.hypot(this.target.pos.x - slot.x, this.target.pos.z - slot.z);
+      if (tl > (this.role === 'front' ? 11 : 13)) this.target = null;
+    }
+    if (this.retarget <= 0) { this.retarget = 0.22 + Math.random() * 0.16; this.acquireArmy(slot); }
+    this.specials(dt);
+    if (this.pendingHit) {
+      this.pendingHit.t -= dt;
+      if (this.pendingHit.t <= 0) { const p = this.pendingHit; this.pendingHit = null; this.resolveAttack(p.target, p.idx); }
+    }
+    this.atkCd -= dt * (1 + this.buffs.atk + (this.def.special?.frenzy ? (1 - this.hpPct) * 0.9 : 0)) * (this.status.chill ? 0.7 : 1);
+    if (this.disabled) { this.vel.multiplyScalar(0.8); return; }
+    const t = this.target;
+    let goal = null, inSlot = false;
+    if (t) {
+      const d = this.distTo(t);
+      const reach = this.range + (t.radius || 0.6) + this.radius * 0.5;
+      if (d <= reach && !(this.def.minRange && d < this.def.minRange)) {
+        this.face(t.isStructure ? t.aimPoint(this.pos) : t.pos, dt);
+        this.desired = 0;
+        if (this.atkCd <= 0 && !this.pendingHit) this.startAttack(t);
+        return;
+      }
+      const tp = t.isStructure ? t.aimPoint(this.pos) : t.pos;
+      if (this.isRanged || this.anims.siege) {
+        // shoot from the line; only step up as far as needed to get in range
+        const sd = Math.hypot(tp.x - slot.x, tp.z - slot.z);
+        const need = sd - this.range * 0.92;
+        if (need <= 0) { goal = slot; inSlot = true; }
+        else { const k = Math.min(need, 5) / (sd || 1); goal = _v.set(slot.x + (tp.x - slot.x) * k, 0, slot.z + (tp.z - slot.z) * k).clone(); }
+      } else {
+        goal = tp;
+        if (this.def.special?.leap && d > 5 && d < this.def.special.leap && (this.specT.leap || 0) <= 0) { this.leap(t); return; }
+      }
+    } else { goal = slot; inSlot = true; }
+    if (goal && !this.pendingHit) this.moveFormation(goal, dt, inSlot);
+    else this.desired = 0;
+  }
+
+  acquireArmy(slot) {
+    const B = this.B, A = this.army;
+    const sp = this.def.special || {};
+    const ranged = this.isRanged || this.anims.siege;
+    const engage = ranged ? this.range + 1.5 : (this.role === 'front' ? 8.5 : 7.5);
+    const ox = ranged ? this.pos.x : slot.x, oz = ranged ? this.pos.z : slot.z;
+    let best = null, bestScore = Infinity;
+    for (const o of B.query(ox, oz, engage + 4)) {
+      if (o.team === this.team || !o.alive || o.stealth || o.isStructure) continue;
+      const d = Math.hypot(o.pos.x - ox, o.pos.z - oz);
+      if (d > engage) continue;
+      let score = d;
+      if (o.target === this) score -= 3;                               // answer whoever is hitting me
+      else if (o.target && o.target.army === A) score -= 1.5;          // protect a comrade
+      else if (o.target && o.target.isHero) score -= 2;                // protect the commander
+      score += (A.targetCount.get(o) || 0) * (ranged ? 0.25 : 1.4);   // melee spread out, archers can stack
+      if (ranged && o === A.focus) score -= 2.5;                       // volley fire on the closest threat
+      if (sp.hunter && o.isRanged) score -= 10;
+      if (o.def?.special?.taunt && d < o.def.special.taunt) score -= 8;
+      if (this.target === o) score -= 1.5;
+      if (score < bestScore) { bestScore = score; best = o; }
+    }
+    if (B.rift && !B.rift.invulnerable) {
+      const d = B.rift.distTo(this.pos);
+      const prefer = this.def.vsStructure ? 30 : 0;
+      if (d < this.range + 4 + prefer && (!best || d - prefer < bestScore)) best = B.rift;
+    }
+    if (best !== this.target) this.target = best;
+  }
+
+  moveFormation(goal, dt, inSlot) {
+    const A = this.army;
+    const dx = goal.x - this.pos.x, dz = goal.z - this.pos.z;
+    const d = Math.sqrt(dx * dx + dz * dz);
+    if (d < (inSlot ? 0.35 : 0.2)) {
+      this.desired = 0;
+      if (inSlot) this.facing = angleLerp(this.facing, A.facing, Math.min(1, dt * 5));
+      return;
+    }
+    // in formation: ease into the slot and match the block's pace instead of sprinting ahead
+    this.desired = inSlot ? Math.min(this.speed, A.speed + d * 2.4) : this.speed;
+    this.dirX = dx / d; this.dirZ = dz / d;
+    const faceYaw = inSlot && d < 1.2 ? A.facing : Math.atan2(dx, dz);
+    this.facing = angleLerp(this.facing, faceYaw, Math.min(1, dt * 8));
   }
 
   idleGoal() {
@@ -413,7 +516,8 @@ export class Unit {
     const name = anims.attacks[idx];
     const dur = this.animator.dur(name);
     const effRate = this.rate / (1 + this.buffs.atk);
-    const ts = clamp(dur / Math.max(0.45, effRate * 0.92), 1, 2.6);
+    // bows draw for about half the cycle, loose, then hold the follow-through
+    const ts = anims.release ? clamp(dur / (effRate * 0.55), 1, 2.6) : clamp(dur / Math.max(0.45, effRate * 0.92), 1, 2.6);
     this.animator.play(name, { ts });
     this.pendingHit = { t: (anims.hitT || 0.42) * dur / ts, target: t, idx };
     this.atkCd = effRate;
@@ -428,6 +532,7 @@ export class Unit {
     let dmg = this.dmg * this.damageMult(t);
     if (d.crit && Math.random() < d.crit) dmg *= 2;
     if (this.isRanged) {
+      if (this.anims.release && this.animator) this.animator.play(this.anims.release, { ts: 1.5 });
       B.fireProjectile(this, t, d.projectile || 'arrow', dmg, { aoe: d.aoe, pierce: d.pierce, pierceArmor: d.pierceArmor });
       return;
     }

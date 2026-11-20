@@ -157,7 +157,7 @@ export class Screens {
       const unlocked = isUnlocked(a, save);
       const inLoad = save.loadout.includes(a.id);
       const cost = UNIT_LEVEL_COSTS[lvl - 1];
-      const rows = [['Health', a.hp], ['Damage', a.dmg], ['Range', a.range > 4 ? a.range : 'Melee'], ['Speed', a.speed], ['Command cost', a.cost], ['Army size', a.pop * a.count]];
+      const rows = [['Health', a.hp], ['Damage', a.dmg], ['Range', a.range > 4 ? a.range : 'Melee'], ['Speed', a.speed], ['Coin cost', a.cost], ['Army size', a.pop * a.count]];
       return `<div class="detail">
         <div class="dpor"><img src="${A.portraits['ally_' + a.id]}"></div>
         <div class="dbody"><div class="eyebrow">${a.faction}</div><h3>${a.name}${a.count > 1 ? ` <small>×${a.count}</small>` : ''}</h3>
@@ -184,7 +184,7 @@ export class Screens {
             return `<div class="ucard ${u ? '' : 'locked'} ${save.loadout.includes(a.id) ? 'in' : ''} ${selected === a.id ? 'sel' : ''}" data-u="${a.id}">
               <img src="${A.portraits['ally_' + a.id]}" alt=""><span class="c">${a.cost}</span>${u ? `<span class="lv">${'★'.repeat(lvl)}</span>` : `<span class="lk">${lockText(a)}</span>`}<div class="nm">${a.name}</div></div>`;
           }).join('')}</div>`).join('')}</div>
-          <aside>${selected ? detail(ALLIES.find(a => a.id === selected)) : '<div class="hint">Choose a unit to see its orders, lore and training.<br><br>Up to ' + maxLoad + ' units can march with you. Each summon spends Command Points, which flow faster with Bannermen and rekindled Lantern Shrines.</div>'}</aside></div>`;
+          <aside>${selected ? detail(ALLIES.find(a => a.id === selected)) : '<div class="hint">Choose a unit to see its role, lore and training.<br><br>Up to ' + maxLoad + ' units can march with you. Calling a unit in battle costs coin from your war chest. Coin builds up over time, from kills, and faster with Bannermen and rekindled Lantern Shrines. Units you call fall into formation and fight on their own.</div>'}</aside></div>`;
       } else if (tab === 'fortify') {
         const list = ['walls', 'towers', 'lantern', 'horn', 'barracks'];
         main.innerHTML = `<div class="upgrades">${list.map(k => upgradeRow(k)).join('')}</div>`;
@@ -251,7 +251,7 @@ export class Screens {
         <p class="sub">${win ? `${data.chapter.rift.replace(/^the /, 'The ')} is broken.` : 'Dawnhold has fallen. But the vigil is not over.'}</p>
         <div class="kv big">
           <span>Hollow slain</span><b>${data.kills}</b>
-          <span>Soldiers summoned</span><b>${data.summoned}</b>
+          <span>Soldiers called in</span><b>${data.summoned}</b>
           <span>Soldiers lost</span><b>${data.lost}</b>
           <span>Time</span><b>${Math.floor(data.time / 60)}:${String(Math.floor(data.time % 60)).padStart(2, '0')}</b>
           <span>Gold</span><b>+${data.gold}</b>
@@ -290,8 +290,6 @@ export class Screens {
       <label>Graphics quality</label><div class="chips">${Object.entries(QUALITY).map(([k, q]) => `<button class="chip ${s.quality === k ? 'sel' : ''}" data-q="${k}">${q.label}</button>`).join('')}</div>
       <p class="hint">High and Ultra add ambient occlusion. The game lowers its resolution on its own if the frame rate drops.</p>
       ${['master', 'music', 'sfx'].map(k => `<label>${{ master: 'Master volume', music: 'Music', sfx: 'Effects' }[k]}</label><input type="range" min="0" max="1" step="0.05" value="${s[k]}" data-v="${k}">`).join('')}
-      <label>Mouse sensitivity</label><input type="range" min="0.3" max="2.5" step="0.05" value="${s.sens}" data-v="sens">
-      <label class="check"><input type="checkbox" data-c="invertY" ${s.invertY ? 'checked' : ''}> Invert vertical look</label>
       <label class="check"><input type="checkbox" data-c="help" ${s.help ? 'checked' : ''}> Show control hints</label>
       <button class="btn primary" data-a="back">Done</button></div></div>`);
     el.addEventListener('input', e => {
@@ -329,4 +327,4 @@ export class Screens {
   }
 }
 
-export const CONTROLS = `<b>Move</b> WASD · <b>Sprint</b> Shift · <b>Dodge</b> Space<br><b>Attack</b> Left click (hold for a heavy blow) · <b>Block / aim</b> Right click<br><b>Abilities</b> Q E F R · <b>Summon</b> 1–8 · <b>Orders</b> Z charge · X hold · C rally<br><b>Camera</b> Mouse (click the battlefield to capture it) · wheel zooms`;
+export const CONTROLS = `<b>Move</b> Click the ground (or WASD) · <b>Attack</b> Click an enemy, or let your hero pick the nearest<br><b>Spells</b> Q E F R, one tap each, they find their own targets<br><b>Call support</b> 1–8 or click a card, paid from your war chest · <b>Zoom</b> Mouse wheel · <b>Pause</b> Esc`;

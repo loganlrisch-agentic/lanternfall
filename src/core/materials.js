@@ -7,6 +7,7 @@ export const darkUniforms = {
   uGrimDark: { value: 0.8 },
   uFogBase: { value: 0.0 },
   uFogFalloff: { value: 0.14 },
+  uFogStart: { value: 0.0 },                          // clear air in front of the camera (tactical view)
   uFogWall: { value: new THREE.Vector3(5, 95, 1.4) }, // x start, x end, extra density toward the enemy
   uFogTime: globalUniforms.uTime,
   uFlash: { value: 0 },                               // lightning
@@ -15,7 +16,7 @@ export const darkUniforms = {
 export function globalPatch(shader) {
   const fs = shader.fragmentShader;
   if (fs.includes('#include <fog_fragment>') && shader.vertexShader.includes('#include <fog_vertex>')) {
-    Object.assign(shader.uniforms, { uFogBase: darkUniforms.uFogBase, uFogFalloff: darkUniforms.uFogFalloff, uFogWall: darkUniforms.uFogWall, uFogTime: darkUniforms.uFogTime });
+    Object.assign(shader.uniforms, { uFogBase: darkUniforms.uFogBase, uFogFalloff: darkUniforms.uFogFalloff, uFogStart: darkUniforms.uFogStart, uFogWall: darkUniforms.uFogWall, uFogTime: darkUniforms.uFogTime });
     shader.vertexShader = shader.vertexShader
       .replace('#include <fog_pars_vertex>', '#include <fog_pars_vertex>\n#ifdef USE_FOG\nvarying vec3 vFogWorld;\n#endif')
       .replace('#include <fog_vertex>', `#include <fog_vertex>
@@ -29,7 +30,7 @@ export function globalPatch(shader) {
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <fog_pars_fragment>', `#include <fog_pars_fragment>
       #ifdef USE_FOG
-        varying vec3 vFogWorld; uniform float uFogBase, uFogFalloff, uFogTime; uniform vec3 uFogWall;
+        varying vec3 vFogWorld; uniform float uFogBase, uFogFalloff, uFogTime, uFogStart; uniform vec3 uFogWall;
       #endif`)
       .replace('#include <fog_fragment>', `
       #ifdef USE_FOG
@@ -38,7 +39,8 @@ export function globalPatch(shader) {
         float fogN = 1.0 + 0.28 * sin(vFogWorld.x * 0.061 + uFogTime * 0.17) * sin(vFogWorld.z * 0.083 - uFogTime * 0.12);
         #ifdef FOG_EXP2
           float fogDens = fogDensity * (0.4 + 1.5 * fogH) * fogWallK * fogN;
-          float fogFactor = 1.0 - exp(-fogDens * fogDens * vFogDepth * vFogDepth);
+          float fogD = max(vFogDepth - uFogStart, 0.0);
+          float fogFactor = 1.0 - exp(-fogDens * fogDens * fogD * fogD);
         #else
           float fogFactor = smoothstep(fogNear, fogFar, vFogDepth);
         #endif

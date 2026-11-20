@@ -55,7 +55,7 @@ export class Projectiles {
 
   fire(src, target, type, dmg, o = {}) {
     const def = PTYPES[type] || PTYPES.arrow;
-    const start = o.from ? o.from.clone() : src.pos.clone().add(new THREE.Vector3(Math.sin(src.facing) * 0.6, src.isLarge ? 3 : (src.anims?.siege ? 1.8 : 1.5), Math.cos(src.facing) * 0.6));
+    const start = o.from ? o.from.clone() : (src.shotOrigin && src.shotOrigin()) || src.pos.clone().add(new THREE.Vector3(Math.sin(src.facing) * 0.6, src.isLarge ? 3 : (src.anims?.siege ? 1.8 : 1.5), Math.cos(src.facing) * 0.6));
     if (src.muzzle) start.copy(src.muzzle);
     let end;
     if (target && target.alive) end = this.aimAt(target); else end = (o.point ? o.point.clone() : start.clone().add(new THREE.Vector3(Math.sin(src.facing) * 20, -1, Math.cos(src.facing) * 20)));

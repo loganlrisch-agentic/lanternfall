@@ -1,4 +1,4 @@
-import asyncio, json
+import asyncio, sys, json
 from playwright.async_api import async_playwright
 SAVE = {"v":1,"hero":"mage","difficulty":"normal","chapter":2,"level":2,"xp":20,"valor":1,"talents":{},"gold":500,"flags":{},"unitLevels":{},"upgrades":{},"loadout":["militia","footman","archer","bannerman"],"seenUnlocks":[],"stats":{"kills":50,"battles":1,"lost":5},"created":0}
 def log(*a):
@@ -28,10 +28,28 @@ async def main():
             if not await js('window.__game.story.active'): break
         await pg.wait_for_function('window.__game.battle && window.__game.battle.state === "fight"', timeout=60000)
         log('fight started; cards', await js('window.__game.battle.cards.length'))
-        # summon, give orders, use abilities via the input edge system
-        await js('(() => { const g = window.__game; g.battle.cp = 30; g.input.edge("Digit1"); g.input.edge("Digit2"); g.input.edge("KeyX"); g.input.edge("KeyQ"); g.input.edge("KeyF"); })()')
+        # call in support and cast through the input edge system
+        await js('(() => { const g = window.__game; g.battle.coins = 30; g.input.edge("Digit1"); g.input.edge("Digit2"); g.input.edge("KeyQ"); g.input.edge("KeyF"); })()')
         await pg.wait_for_timeout(3000)
-        log('units', await js('window.__game.battle.units.length'), 'order', await js('window.__game.battle.order'))
+        log('units', await js('window.__game.battle.units.length'), 'army', await js('window.__game.battle.army.units.length'), 'objective', await js('window.__game.battle.army.objective'))
+        # a real mouse click on the battlefield should give the hero a move order
+        log('element under click', await js('(() => { const e = document.elementFromPoint(450, 150); return e && (e.id || e.className || e.tagName); })()'))
+        hx0 = await js('window.__game.battle.hero.pos.x')
+        await pg.mouse.click(450, 150)
+        got = None
+        for _ in range(30):
+            await pg.wait_for_timeout(500)
+            got = await js('(() => { const h = window.__game.battle.hero; return h.moveTo ? [Math.round(h.moveTo.x), Math.round(h.moveTo.z)] : null; })()')
+            if got: break
+        log('click -> moveTo', got, 'hero moved', round(await js('window.__game.battle.hero.pos.x') - hx0, 1))
+        # clicking where an enemy stands should target it
+        pos = await js('(() => { const b = window.__game.battle; const e = b.units.find(u => u.team === 1 && u.alive); if (!e) return null; const w = innerWidth, h = innerHeight; const s = b.cam.toScreen(e.pos.clone().setY(e.pos.y + 1.2), w, h); return [s.x, s.y]; })()')
+        if pos:
+            await pg.mouse.click(pos[0], pos[1]); await pg.wait_for_timeout(1500)
+            log('click enemy -> target', await js('(() => { const t = window.__game.battle.hero.target; return t ? t.def.name : null; })()'))
+        else:
+            log('no enemy on screen to click')
+        if '--clicks-only' in sys.argv: await b.close(); return
         # pause and resume
         await js('window.__game.pause()'); await pg.wait_for_timeout(800)
         log('paused', await js('!!document.querySelector(".pause.on")'))

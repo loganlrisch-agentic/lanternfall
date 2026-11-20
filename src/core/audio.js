@@ -112,8 +112,9 @@ class Audio {
   }
 
   // ---------- spatial sfx ----------
-  setListener(cam) {
-    const p = cam.position; this.listener.x = p.x; this.listener.y = p.y; this.listener.z = p.z;
+  // at = where the ears are (defaults to the camera); the camera still decides left/right
+  setListener(cam, at = null) {
+    const p = at || cam.position; this.listener.x = p.x; this.listener.y = p.y; this.listener.z = p.z;
     const e = cam.matrixWorld.elements; this.listener.rx = e[0]; this.listener.rz = e[2];
   }
 

@@ -32,6 +32,7 @@ export class FogBank {
     this.uniforms = {
       uTex: { value: this.tex }, uTime: globalUniforms.uTime, uColor: { value: new THREE.Color('#40465a') },
       uAmount: { value: 1 }, uSurge: { value: 0 }, uCam: { value: new THREE.Vector3() }, uLight: { value: 0.0 },
+      uNear: { value: new THREE.Vector2(3, 14) },   // fade sprites close to the camera
     };
     this.flat = this.make(170, true);
     this.tall = this.make(70, false);
@@ -66,7 +67,7 @@ export class FogBank {
       transparent: true, depthWrite: false, side: THREE.DoubleSide,
       vertexShader: `
         attribute vec3 aOff; attribute float aSize, aSeed, aSpeed;
-        uniform float uTime, uSurge; uniform vec3 uCam;
+        uniform float uTime, uSurge; uniform vec3 uCam; uniform vec2 uNear;
         varying vec2 vUv; varying float vSeed, vFade, vX;
         void main(){
           vec3 o = aOff;
@@ -84,7 +85,7 @@ export class FogBank {
           #endif
           vUv = uv; vSeed = aSeed; vX = o.x;
           float d = distance(p, uCam);
-          vFade = smoothstep(3.0, 14.0, d) * (1.0 - smoothstep(170.0, 240.0, d)) * smoothstep(0.0, 6.0, 80.0 - abs(o.x - 20.0) + 40.0);
+          vFade = smoothstep(uNear.x, uNear.y, d) * (1.0 - smoothstep(170.0, 240.0, d)) * smoothstep(0.0, 6.0, 80.0 - abs(o.x - 20.0) + 40.0);
           gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
         }`,
       fragmentShader: `
@@ -111,6 +112,7 @@ export class FogBank {
     return mesh;
   }
 
+  setNearFade(a, b) { this.uniforms.uNear.value.set(a, b); }
   configure({ color = '#40465a', amount = 1 } = {}) {
     this.uniforms.uColor.value.set(color);
     this.uniforms.uAmount.value = amount;

@@ -2,7 +2,7 @@
 
 *When the last light dies, the fog comes for you.*
 
-A dark-fantasy castle-defense action game that runs in the browser. You play a Warden in third person, fighting on the field outside your fortress while you summon soldiers from the gate. The Hollow walk out of the fog in waves. Hold the wall, rekindle the Lantern Shrines, break the last wave, then storm the enemy stronghold before your Lantern goes out.
+A dark-fantasy castle-defense action game that runs in the browser. You are the commander: you lead from the field outside your fortress and spend coin from your war chest to call soldiers out of the gate, who march and fight in formation. The Hollow walk out of the fog in waves. Hold the wall, rekindle the Lantern Shrines, break the last wave, then storm the enemy stronghold before your Lantern goes out.
 
 Built with three.js. No game engine, no server: it's a static site.
 
@@ -16,26 +16,25 @@ Built with three.js. No game engine, no server: it's a static site.
 ## What's in it
 
 - **Campaign:** 6 chapters with branching choices and two endings. Each chapter has its own map, weather, monsters, boss and enemy stronghold.
-- **4 hero classes:** Oathsworn Knight, Mistwalker, Lanternmage and Wolf of the North. Each has a combo, a heavy attack, stamina, a dodge roll and 4 abilities that can be upgraded with talents.
-- **36 summonable allies** across 5 factions (Dawnhold, Thornwood, Highforge, Red Maw, Wanderers). The roster includes militia, bannermen, clerics, paladins, druids, wolfkin, clockwork sentinels, mountain giants, frost golems, catapults and dwarven bombards. Some are unlocked only by story choices.
+- **4 hero classes:** Oathsworn Knight, Mistwalker, Lanternmage and Wolf of the North. The hero attacks on its own; each class has 4 one-tap spells that find their own targets and can be upgraded with talents.
+- **36 allies to call in** across 5 factions (Dawnhold, Thornwood, Highforge, Red Maw, Wanderers). The roster includes militia, bannermen, clerics, paladins, druids, wolfkin, clockwork sentinels, mountain giants, frost golems, catapults and dwarven bombards. Some are unlocked only by story choices.
 - **21 enemy types and 6 bosses:** the Hollow (skeleton legions, hexers, bonecallers, bone colossi), blighted werewolves, fen witches, maddened orcs, dreadguard, abominations, and the Pale Regent.
-- **Siege systems:** Command Points, Bannermen, capturable Lantern Shrines, arrow towers, army orders (Charge / Hold / Rally), engineers that build turrets, castle upgrades and unit veterancy.
+- **Formations:** called-in units take a slot in ranks (shields in front, swords and spears behind, archers and casters further back, healers and siege at the rear). The army marches as a block to rekindle shrines, wheels to face the horde, holds the line when it makes contact and falls back to stay between the enemy and the castle.
+- **Siege systems:** a coin war chest, Bannermen, capturable Lantern Shrines, arrow towers, engineers that build turrets, castle upgrades and unit veterancy.
 - **Look and sound:** moonlit height fog that thickens toward the enemy, rolling fog banks, lightning, crows, rim-lit monsters, bloom and ambient occlusion. The score is synthesized live (drones, war drums, choir, funeral bells, war horns).
 
 ## Controls
 
 | | |
 |---|---|
-| Move / sprint / dodge | WASD · Shift · Space |
-| Attack | Left click (hold for a heavy attack) |
-| Block (Knight) / aim | Right click |
-| Abilities | Q E F R |
-| Summon | 1–8 or click a card |
-| Orders | Z charge · X hold · C rally |
-| Camera | Mouse (click the battlefield to capture it; hold right mouse if capture is blocked) · wheel zooms |
+| Move | Click the ground (WASD also works) |
+| Attack | Automatic; click an enemy to pick your target |
+| Spells | Q E F R, one tap each |
+| Call support | 1–8 or click a card (costs coin) |
+| Zoom | Mouse wheel |
 | Pause | Esc |
 
-Touch devices get a virtual joystick and buttons.
+On touch devices, tap where you'd click.
 
 ## Run it locally
 

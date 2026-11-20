@@ -1,14 +1,16 @@
-// Battle orchestration: structures, waves out of the fog, summoning, command points, shrines, towers, bosses.
+// Battle orchestration: structures, waves out of the fog, calling in support with coin, the army formation, shrines, towers, bosses.
 import * as THREE from 'three';
 import { Unit } from './unit.js';
 import { Hero } from './hero.js';
 import { Projectiles } from './projectiles.js';
 import { CameraRig } from './camera.js';
+import { Army } from './army.js';
 import { ALLIES, ENEMIES, allyById } from './data/units.js';
 import { BARKS } from './data/campaign.js';
 import { MAP, roadZ, TEAM } from './config.js';
 import { SpatialHash, clamp, rand, pick, dist2 } from '../core/util.js';
 import { audio } from '../core/audio.js';
+import { darkUniforms } from '../core/materials.js';
 
 const _v = new THREE.Vector3();
 export const DIFFICULTY = {
@@ -86,13 +88,14 @@ export class Battle {
     this.castle = new Castle(this, Math.round(2600 * (1 + 0.2 * (up.walls || 0)) * this.diff.castle));
     this.rift = new Rift(this, Math.round(chapter.fortressHP * this.diff.enemyHp));
     this.towerRank = up.towers || 0;
-    this.cpMax = 30 + 8 * (up.horn || 0);
-    this.cp = 12 + 2 * (up.horn || 0);
-    this.cpBase = 1.0 * (1 + 0.15 * (up.lantern || 0)) * this.diff.cp;
+    // the war chest: coin trickles in, kills pay a bounty, support costs coin
+    this.coinMax = 30 + 8 * (up.horn || 0);
+    this.coins = 12 + 2 * (up.horn || 0);
+    this.coinBase = 0.85 * (1 + 0.15 * (up.lantern || 0)) * this.diff.cp;
     this.popCap = 22 + 4 * (up.barracks || 0);
     this.relicBonus = this.flags.restAldous ? 1.15 : 1;
     this.enemyRim = { dawnhold: '#8a5cff', thornwood: '#5aff9a', highforge: '#7ad8ff', redmaw: '#ff6a3a', drowned: '#5affd0', citadel: '#ff3a5a' }[chapter.biome] || '#8a5cff';
-    this.order = 'charge';
+    this.army = new Army(this);
     this.cards = (save.loadout || []).map(id => allyById(id)).filter(Boolean).map(def => ({ def, cd: 0 }));
     this.hero = new Hero(this, save.hero, save);
     this.hero.place(this.level.heroSpawn.x, this.level.heroSpawn.z, Math.PI / 2);
@@ -100,7 +103,9 @@ export class Battle {
     this.heroLight = new THREE.PointLight(0xffb36b, 22, 17, 1.4);
     this.scene.add(this.heroLight);
     this.cam = new CameraRig(this.world.camera, this);
-    this.cam.focus.copy(this.hero.pos);
+    this.cam.snapTo(this.hero.pos);
+    this.buildMarkers();
+    this._ears = new THREE.Vector3();
     this.waveIdx = -1;
     this.waveTimer = 16;
     this.waveSize = 0;
@@ -184,6 +189,7 @@ export class Battle {
       const share = killer && (killer.isHero || killer.pos.distanceTo(this.hero.pos) < 26);
       if (share) this.hero.gainXp && this.hero.gainXp(u.xp);
       this.stats.xp += u.xp;
+      if (this.state === 'fight') this.coins = Math.min(this.coinMax, this.coins + (u.isBoss ? 12 : u.isLarge ? 2.5 : 0.6));
       const undead = u.def.undead;
       this.fx.burst(u.pos.clone().setY(u.pos.y + 1), { count: u.isLarge ? 34 : 14, color: undead ? 0x1a1420 : 0x2a1010, normal: true, size: u.isLarge ? 2.4 : 1.4, speed: 1.6, spread: 1, up: 1.2, gravity: -0.6, life: 1.6, grow: 1.2, alpha: 0.75 });
       this.fx.burst(u.pos.clone().setY(u.pos.y + 1.2), { count: 8, color: new THREE.Color(this.enemyRim).getHex(), speed: 2.5, up: 2, gravity: -1, life: 0.9, size: 0.4 });
@@ -447,7 +453,7 @@ export class Battle {
 
   after(t, fn) { this.timers.push({ t, fn }); }
   shake(a, pos) {
-    const d = pos ? pos.distanceTo(this.world.camera.position) : 0;
+    const d = pos ? pos.distanceTo(this.cam.mode === 'follow' ? this.cam.focus : this.world.camera.position) : 0;
     this.cam.shake(a * clamp(1.4 - d / 50, 0.1, 1));
   }
   screenFlash(color, a) { this.hud.screenFlash(color, a); }
@@ -539,32 +545,26 @@ export class Battle {
     if (!c || this.state !== 'fight') return false;
     const d = c.def;
     if (c.cd > 0) return false;
-    if (this.cp < d.cost) { this.hud.toast('Not enough Command Points.', 1.2); this.sfx('ui', null, 0.4); return false; }
+    if (this.coins < d.cost) { this.hud.toast('Not enough coin in the war chest.', 1.2); this.sfx('ui', null, 0.4); return false; }
     if (this.pop + d.pop * d.count > this.popCap) { this.hud.toast('Your army is at full strength.', 1.4); return false; }
     const alive = this.units.filter(u => u.alive && u.def === d).length;
     if (alive >= d.limit) { this.hud.toast(`Only ${d.limit} ${d.name} at a time.`, 1.4); return false; }
-    this.cp -= d.cost;
+    this.coins -= d.cost;
     c.cd = d.cd;
     const lvl = (this.save.unitLevels || {})[d.id] || 1;
     const sp = this.level.allySpawn;
     for (let k = 0; k < d.count; k++) {
-      const u = new Unit(this, d, TEAM.PLAYER, { level: lvl, order: this.order });
+      const u = new Unit(this, d, TEAM.PLAYER, { level: lvl });
       u.place(sp.x + rand(-1, 3), sp.z + rand(-6, 6), Math.PI / 2);
       if (u.animator) { const dur = u.animator.play('Spawn_Ground', { ts: 1.6 }); u.state = 'spawn'; u.stateT = dur * 0.6; }
       this.units.push(u);
+      if (!d.special?.turret) this.army.add(u);
       this.fx.burst(u.pos.clone().setY(u.pos.y + 0.6), { count: 12, color: 0xffc070, speed: 2, up: 2, gravity: -1, life: 0.8, size: 0.4 });
     }
     this.fx.flash(sp, 0xffb060, 30, 14, 0.5);
     this.stats.summoned += d.count;
     this.sfx('summon', sp, 0.7);
     return true;
-  }
-
-  setOrder(order) {
-    this.order = order;
-    for (const u of this.units) if (u.team === TEAM.PLAYER && !u.isHero) { u.order = order; u.holdPoint = null; u.rallyOff = null; u.target = null; }
-    this.hud.toast({ charge: 'CHARGE! The army advances on the enemy.', hold: 'HOLD! The army guards the wall.', rally: 'TO ME! The army follows you.' }[order], 1.6);
-    this.sfx('horn', this.hero.pos, 0.4);
   }
 
   // ---------------- economy, auras, shrines, towers ----------------
@@ -599,7 +599,7 @@ export class Battle {
       if (newOwner !== s.owner) {
         const prev = s.owner;
         this.level.setShrineOwner(s, newOwner);
-        if (newOwner === 0) { this.hud.toast('A Lantern Shrine is rekindled. Command Points flow faster.', 2.2); this.sfx('holy', s.pos, 0.8); this.fx.burst(s.pos.clone().setY(s.pos.y + 3), { count: 30, color: 0xffc870, speed: 3, up: 2, life: 1.2, size: 0.5 }); }
+        if (newOwner === 0) { this.hud.toast('A Lantern Shrine is rekindled. Coin flows faster.', 2.2); this.sfx('holy', s.pos, 0.8); this.fx.burst(s.pos.clone().setY(s.pos.y + 3), { count: 30, color: 0xffc870, speed: 3, up: 2, life: 1.2, size: 0.5 }); }
         else if (newOwner === 1 && prev === 0) { this.hud.toast('The fog has swallowed a shrine.', 2.2); this.sfx('hex', s.pos, 0.8); }
       }
       s.progress = Math.abs(s.cap);
@@ -629,6 +629,81 @@ export class Battle {
     }
   }
 
+  // ---------------- clicking on the battlefield ----------------
+  buildMarkers() {
+    const ring = (color, inner, outer, opacity) => {
+      const m = new THREE.Mesh(new THREE.RingGeometry(inner, outer, 48), new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, toneMapped: false }));
+      m.rotation.x = -Math.PI / 2; m.renderOrder = 4; m.visible = false; m.frustumCulled = false;
+      this.scene.add(m);
+      return m;
+    };
+    this.markers = {
+      hero: ring(0xffc870, 0.95, 1.12, 0.55),
+      target: ring(0xff4a2a, 0.9, 1.15, 0.9),
+      hover: ring(0xffe0b0, 0.9, 1.05, 0.45),
+      move: ring(0xffc870, 0.55, 0.8, 0.9),
+      army: ring(0xffc870, 0.25, 0.42, 0.0),
+    };
+    this.moveMarkT = 0;
+    this.hovered = null;
+  }
+  markTarget(u) { this.markPulse = 0.35; this.hero.target = u; }
+  markMove(p) {
+    if (!p) { this.markers.move.visible = false; return; }
+    this.markers.move.position.set(p.x, p.y + 0.08, p.z);
+    this.markers.move.visible = true;
+    this.moveMarkT = 1;
+    this.fx.ring(p, { color: 0xffc870, radius: 1.4, life: 0.45, width: 0.06 });
+  }
+  // the enemy (or rift) under a screen point, judged on screen so small or distant foes are easy to click
+  pickAt(nx, ny) {
+    const R = this.game.R, w = R.canvas.clientWidth || window.innerWidth, h = R.canvas.clientHeight || window.innerHeight;
+    const px = (nx * 0.5 + 0.5) * w, py = (-ny * 0.5 + 0.5) * h;
+    let best = null, bd = Infinity;
+    const p = new THREE.Vector3();
+    for (const u of this.units) {
+      if (u.team !== TEAM.ENEMY || !u.alive) continue;
+      const tall = u.isLarge ? 2.6 : 1.2;
+      p.set(u.pos.x, u.pos.y + tall, u.pos.z);
+      const s = this.cam.toScreen(p, w, h);
+      if (s.behind) continue;
+      const lim = (u.isLarge ? 70 : 42) * (30 / this.cam.dist);
+      const d = Math.hypot(s.x - px, s.y - py);
+      if (d < lim && d < bd) { bd = d; best = u; }
+    }
+    if (!best && this.rift && !this.rift.invulnerable) {
+      const g = this.cam.groundAt(nx, ny);
+      if (this.rift.distTo(g) < 2) best = this.rift;
+    }
+    return best;
+  }
+  updateMarkers(dt, inp) {
+    const M = this.markers, hero = this.hero, fight = this.state === 'fight';
+    M.hero.visible = fight && hero.alive;
+    M.hero.position.set(hero.pos.x, hero.pos.y + 0.06, hero.pos.z);
+    const t = hero.target;
+    M.target.visible = fight && !!t && t.alive && !t.isStructure;
+    if (M.target.visible) {
+      this.markPulse = Math.max(0, (this.markPulse || 0) - dt);
+      const sc = (t.isLarge ? 2.2 : 1.0) * (1 + this.markPulse * 1.2);
+      M.target.position.set(t.pos.x, t.pos.y + 0.07, t.pos.z); M.target.scale.setScalar(sc);
+    }
+    if (M.move.visible) {
+      this.moveMarkT = Math.max(0, this.moveMarkT - dt * 0.8);
+      M.move.material.opacity = 0.25 + 0.65 * this.moveMarkT;
+      M.move.scale.setScalar(1 + (1 - this.moveMarkT) * 0.4);
+      if (!hero.moveTo) M.move.visible = false;
+    }
+    // hover: show what a click would pick
+    let hv = null;
+    const ptr = this.game.input.pointer;
+    if (fight && ptr.inside && !this.game.input.isTouch) hv = this.pickAt(ptr.x, ptr.y);
+    this.hovered = hv;
+    M.hover.visible = !!hv && !hv.isStructure && hv !== t;
+    if (M.hover.visible) { M.hover.position.set(hv.pos.x, hv.pos.y + 0.07, hv.pos.z); M.hover.scale.setScalar(hv.isLarge ? 2.2 : 1); }
+    this.game.R.canvas.style.cursor = fight ? (hv ? 'crosshair' : 'pointer') : '';
+  }
+
   get enemyCount() { let n = 0; for (const u of this.units) if (u.team === TEAM.ENEMY && u.alive) n++; return n; }
 
   // ---------------- state changes ----------------
@@ -636,11 +711,15 @@ export class Battle {
     this.state = 'fight';
     this.hero.place(MAP.castleX + 8, 0, Math.PI / 2);
     this.cam.follow();
-    this.cam.yaw = Math.PI / 2; this.cam.pitch = 0.28;
+    this.cam.snapTo(this.hero.pos);
+    // tactical view: keep the air clear around the battle, let the distance drown in fog
+    darkUniforms.uFogStart.value = 24;
+    this._fogWall = darkUniforms.uFogWall.value.z;
+    darkUniforms.uFogWall.value.z = this._fogWall * 0.55;
+    this.world.fog.setNearFade(26, 56);
     this.hud.show(true);
     this.hud.objective(this.chapter.objective);
     audio.setMood('battle', this.chapter.biome);
-    this.game.input.requestLock();
   }
 
   victory() {
@@ -705,12 +784,11 @@ export class Battle {
       // economy
       let banner = 0;
       for (const u of this.units) if (u.alive && u.def.special?.cp) banner += u.def.special.cp;
-      this.cpRate = this.cpBase + Math.min(0.9, banner) + (this.shrinesOwned || 0) * 0.45;
-      this.cp = Math.min(this.cpMax, this.cp + this.cpRate * dt);
+      this.coinRate = this.coinBase + Math.min(0.9, banner) + (this.shrinesOwned || 0) * 0.4;
+      this.coins = Math.min(this.coinMax, this.coins + this.coinRate * dt);
       for (const c of this.cards) c.cd = Math.max(0, c.cd - dt);
       if (inp) {
         if (inp.summon >= 0) this.summon(inp.summon);
-        if (inp.command) this.setOrder(inp.command);
       }
       this.updateWaves(dt);
       this.updateShrines(dt);
@@ -731,7 +809,8 @@ export class Battle {
         this.sfx('holy', hero.pos, 1);
       }
     }
-    // units
+    // army formation, then units
+    this.army.update(dt);
     for (let i = this.units.length - 1; i >= 0; i--) {
       const u = this.units[i];
       if (u.lifetime !== undefined && u.alive) { u.lifetime -= dt; if (u.lifetime <= 0) u.die(null); }
@@ -749,11 +828,14 @@ export class Battle {
       audio.intensity = clamp(this.enemyCount / 28, 0.15, 1);
     }
     // camera + light
-    if (this.cam.mode === 'follow') this.cam.update(rawDt, inp, hero);
+    const camSubject = this.game.camOnArmy && this.army.units.length ? { pos: this.army.anchor } : hero;
+    if (this.cam.mode === 'follow') this.cam.update(rawDt, inp, camSubject);
     else this.cam.update(rawDt, null, hero);
+    this.updateMarkers(rawDt, inp);
     this.heroLight.position.set(hero.pos.x, hero.pos.y + 3.2, hero.pos.z);
     this.heroLight.intensity = hero.alive ? 22 : 0;
-    audio.setListener(this.world.camera);
+    // tactical view: listen from just above the battle, not from the camera high overhead
+    audio.setListener(this.world.camera, this.cam.mode === 'follow' ? this._ears.set(this.cam.focus.x, this.cam.focus.y + 5, this.cam.focus.z + 4) : null);
     this.hud.update(rawDt, this);
   }
 
@@ -762,6 +844,11 @@ export class Battle {
     this.units.length = 0;
     this.proj.clear();
     this.scene.remove(this.heroLight);
+    darkUniforms.uFogStart.value = 0;
+    if (this._fogWall != null) darkUniforms.uFogWall.value.z = this._fogWall;
+    this.world.fog.setNearFade(3, 14);
+    for (const m of Object.values(this.markers || {})) { this.scene.remove(m); m.geometry.dispose(); m.material.dispose(); }
+    this.game.R.canvas.style.cursor = '';
     audio.heartbeat = false;
   }
 }
