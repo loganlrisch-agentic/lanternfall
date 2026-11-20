@@ -34,7 +34,11 @@ Built with three.js. No game engine, no server: it's a static site.
 | Zoom | Mouse wheel |
 | Pause | Esc |
 
-On touch devices, tap where you'd click.
+### On a phone
+
+Tap the ground to move, tap an enemy to attack, tap a spell or a unit card, pinch to zoom, and use the button in the top corner to pause. It plays upright (castle at the bottom, the horde coming down from the top) or sideways.
+
+For full screen with no browser bars, open the game in your phone's browser and add it to your home screen (iPhone: Share → Add to Home Screen; Android: menu → Add to Home screen or Install app). Android browsers also get a Full screen button on the title menu.
 
 ## Run it locally
 

@@ -16,7 +16,7 @@ export class Story {
       <div class="letterbox top"></div><div class="letterbox bot"></div>
       <div class="dlg">
         <div class="dlg-portrait"><img alt=""></div>
-        <div class="dlg-body"><div class="dlg-name"></div><div class="dlg-text"></div><div class="dlg-choices"></div><div class="dlg-hint">Click or press Space</div></div>
+        <div class="dlg-body"><div class="dlg-name"></div><div class="dlg-text"></div><div class="dlg-choices"></div><div class="dlg-hint">${matchMedia('(pointer: coarse)').matches ? 'Tap to continue' : 'Click or press Space'}</div></div>
       </div>
       <button class="dlg-skip">Skip scene ⟫</button>
       <div class="narr"><p></p></div>`;

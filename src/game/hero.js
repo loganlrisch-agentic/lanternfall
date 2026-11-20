@@ -87,9 +87,10 @@ export class Hero extends Unit {
     // decide where to go
     let mx = 0, mz = 0;
     if (keyMove) {
-      // camera looks north from the south: screen right = +x, screen up = -z
-      mx = inp.move.x; mz = -inp.move.y;
-      const l = Math.hypot(mx, mz); mx /= l; mz /= l;
+      // move relative to the screen, whichever way the camera faces
+      const bs = cam.basis;
+      mx = inp.move.x * bs.rx + inp.move.y * bs.fx; mz = inp.move.x * bs.rz + inp.move.y * bs.fz;
+      const l = Math.hypot(mx, mz) || 1; mx /= l; mz /= l;
     } else if (this.moveTo) {
       const dx = this.moveTo.x - this.pos.x, dz = this.moveTo.z - this.pos.z, d = Math.hypot(dx, dz);
       if (d < 0.5) { this.moveTo = null; this.clearMarker(); }

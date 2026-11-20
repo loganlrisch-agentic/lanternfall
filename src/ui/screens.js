@@ -38,6 +38,7 @@ export class Screens {
         <button class="btn ${save ? '' : 'primary'}" data-a="new">New Campaign</button>
         <button class="btn" data-a="settings">Settings</button>
         <button class="btn" data-a="credits">Credits</button>
+        ${canFullscreen() ? `<button class="btn" data-a="fullscreen">${document.fullscreenElement ? 'Leave full screen' : 'Full screen'}</button>` : ''}
       </nav>
       <div class="foot">An original dark-fantasy siege game · inspired by the castle-defense classics</div>
     </div>`);
@@ -49,6 +50,7 @@ export class Screens {
       if (a === 'new') { if (save) this.confirm('Begin a new campaign? Your current progress will be lost.', () => this.heroSelect()); else this.heroSelect(); }
       if (a === 'settings') this.settings(() => this.title(save));
       if (a === 'credits') this.credits(() => this.title(save));
+      if (a === 'fullscreen') toggleFullscreen().then(() => setTimeout(() => this.title(save), 250));
     });
     this.show(el);
   }
@@ -159,6 +161,7 @@ export class Screens {
       const cost = UNIT_LEVEL_COSTS[lvl - 1];
       const rows = [['Health', a.hp], ['Damage', a.dmg], ['Range', a.range > 4 ? a.range : 'Melee'], ['Speed', a.speed], ['Coin cost', a.cost], ['Army size', a.pop * a.count]];
       return `<div class="detail">
+        <button class="sheet-close" data-close aria-label="Close">✕</button>
         <div class="dpor"><img src="${A.portraits['ally_' + a.id]}"></div>
         <div class="dbody"><div class="eyebrow">${a.faction}</div><h3>${a.name}${a.count > 1 ? ` <small>×${a.count}</small>` : ''}</h3>
           <div class="stars">${[1, 2, 3].map(s => `<i class="${s <= lvl ? 'on' : ''}"></i>`).join('')} <span>${['Recruit', 'Veteran', 'Elite'][lvl - 1]}</span></div>
@@ -177,7 +180,7 @@ export class Screens {
         const groups = {};
         for (const a of ALLIES) (groups[a.faction] = groups[a.faction] || []).push(a);
         const lockText = a => typeof a.unlock === 'number' ? `After Chapter ${ROMAN[a.unlock]}` : ({ spareCursed: 'Spare the cursed', orcs: 'Shelter the Red Maw', redeemAldous: 'Redeem the fallen knight' }[a.unlock] || 'Locked');
-        main.innerHTML = `<div class="muster"><div class="roster">${Object.entries(groups).map(([f, list]) => `
+        main.innerHTML = `<div class="muster ${selected ? 'has-sel' : ''}"><div class="roster">${Object.entries(groups).map(([f, list]) => `
           <h4>${f}</h4><div class="grid">${list.map(a => {
             const u = isUnlocked(a, save);
             const lvl = save.unitLevels[a.id] || 1;
@@ -221,6 +224,7 @@ export class Screens {
 
     el.addEventListener('click', e => {
       const t = e.target.closest('[data-t]'); if (t) { tab = this.lastTab = t.dataset.t; render(); return; }
+      if (e.target.closest('[data-close]')) { selected = null; render(); return; }
       const u = e.target.closest('[data-u]'); if (u) { selected = u.dataset.u; render(); return; }
       const ld = e.target.closest('[data-load]');
       if (ld) { const id = ld.dataset.load; const i = save.loadout.indexOf(id); if (i >= 0) save.loadout.splice(i, 1); else if (save.loadout.length < maxLoad) save.loadout.push(id); save_(); render(); return; }
@@ -327,4 +331,17 @@ export class Screens {
   }
 }
 
-export const CONTROLS = `<b>Move</b> Click the ground (or WASD) · <b>Attack</b> Click an enemy, or let your hero pick the nearest<br><b>Spells</b> Q E F R, one tap each, they find their own targets<br><b>Call support</b> 1–8 or click a card, paid from your war chest · <b>Zoom</b> Mouse wheel · <b>Pause</b> Esc`;
+// Full screen is offered on touch devices whose browser allows it (Android; not iPhone Safari)
+function canFullscreen() {
+  try { return !!document.fullscreenEnabled && matchMedia('(pointer: coarse)').matches; } catch (e) { return false; }
+}
+async function toggleFullscreen() {
+  try {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+  } catch (e) { /* refused (e.g. inside an embedded viewer): nothing to do */ }
+}
+
+export const CONTROLS = matchMedia('(pointer: coarse)').matches
+  ? `<b>Move</b> Tap the ground · <b>Attack</b> Tap an enemy, or let your hero pick the nearest<br><b>Spells</b> Tap a spell button, it finds its own target<br><b>Call support</b> Tap a unit card, paid from your war chest · <b>Zoom</b> Pinch · <b>Pause</b> the button in the corner`
+  : `<b>Move</b> Click the ground (or WASD) · <b>Attack</b> Click an enemy, or let your hero pick the nearest<br><b>Spells</b> Q E F R, one tap each, they find their own targets<br><b>Call support</b> 1–8 or click a card, paid from your war chest · <b>Zoom</b> Mouse wheel · <b>Pause</b> Esc`;

@@ -1,6 +1,8 @@
-// Tactical camera: an angled view that follows the commander, with the castle on
-// the left and the fog on the right. No mouse-look. Also turns screen clicks into
-// battlefield points, and plays cinematic moves for story beats and endings.
+// Tactical camera: an angled view that follows the commander. On a wide screen the
+// castle is on the left and the fog on the right; on a tall (portrait) screen the view
+// turns so the castle is at the bottom and the horde comes down from the top.
+// No mouse-look. Also turns screen clicks into battlefield points, and plays
+// cinematic moves for story beats and endings.
 import * as THREE from 'three';
 import { clamp, damp, easeInOutCubic } from '../core/util.js';
 import { MAP } from './config.js';
@@ -22,6 +24,8 @@ export class CameraRig {
     this.mode = 'follow';
     this.cine = null;
     this.yaw = Math.PI / 2;    // kept for code that reads it; the view always faces the fog
+    this.portrait = false;
+    this.basis = { rx: 1, rz: 0, fx: 0, fz: -1 };   // screen right / screen up on the ground
   }
 
   shake(a) { this.shakeAmt = Math.min(1.2, this.shakeAmt + a); }
@@ -50,18 +54,27 @@ export class CameraRig {
     }
     if (inp && inp.zoom) this.targetDist = clamp(this.targetDist + inp.zoom * 0.02, this.minDist, this.maxDist);
     this.dist = damp(this.dist, this.targetDist, 8, dt);
-    // follow the commander, leaning a little toward the fog side so threats are visible
-    const fx = clamp(hero.pos.x + 3, MAP.xMin + 14, MAP.xMax - 10);
-    const fz = clamp(hero.pos.z, -20, 14);
+    this.portrait = cam.aspect < 0.9;
+    const dist = this.dist * (this.portrait ? 1.3 : 1);
+    // follow the commander, leaning toward the fog side so threats are visible
+    const lean = this.portrait ? 7 : 3;
+    const fx = clamp(hero.pos.x + lean, MAP.xMin + 14, MAP.xMax - 10);
+    const fz = this.portrait ? clamp(hero.pos.z, -22, 22) : clamp(hero.pos.z, -20, 14);
     this.focus.x = damp(this.focus.x, fx, 5, dt);
     this.focus.y = damp(this.focus.y, hero.pos.y, 4, dt);
     this.focus.z = damp(this.focus.z, fz, 5, dt);
     const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch);
-    cam.position.set(this.focus.x, this.focus.y + sp * this.dist, this.focus.z + cp * this.dist);
+    if (this.portrait) cam.position.set(this.focus.x - cp * dist, this.focus.y + sp * dist, this.focus.z);   // behind the castle, looking at the fog
+    else cam.position.set(this.focus.x, this.focus.y + sp * dist, this.focus.z + cp * dist);                  // south of the field, looking north
     _l.copy(this.focus);
     cam.lookAt(_l);
-    this.B.world.focus.set(this.focus.x, this.focus.y, this.focus.z - 2);
+    this.B.world.focus.set(this.focus.x + (this.portrait ? 4 : 0), this.focus.y, this.focus.z - (this.portrait ? 0 : 2));
     this.applyShake(dt);
+    // ground directions for screen right / up, so WASD always matches what you see
+    const e = cam.matrixWorld.elements;
+    let rx = e[0], rz = e[2], ux = -e[8], uz = -e[10];
+    const rl = Math.hypot(rx, rz) || 1, ul = Math.hypot(ux, uz) || 1;
+    this.basis.rx = rx / rl; this.basis.rz = rz / rl; this.basis.fx = ux / ul; this.basis.fz = uz / ul;
   }
 
   applyShake(dt) {

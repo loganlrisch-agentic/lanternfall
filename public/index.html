@@ -2,8 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Lanternfall</title>
+<meta name="theme-color" content="#07060a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Lanternfall">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2710%27 fill=%27%230b0a0d%27/%3E%3Cpath d=%27M24 14h16l-3 6H27z%27 fill=%27%23a8875a%27/%3E%3Crect x=%2722%27 y=%2720%27 width=%2720%27 height=%2726%27 rx=%274%27 fill=%27none%27 stroke=%27%23a8875a%27 stroke-width=%273%27/%3E%3Cpath d=%27M32 25c4 5 5 9 0 15-5-6-4-10 0-15z%27 fill=%27%23e8a24a%27/%3E%3Cpath d=%27M24 46h16v4H24z%27 fill=%27%23a8875a%27/%3E%3C/svg%3E">
 <style>
 @font-face{font-family:"Grenze Gotisch";src:url(fonts/grenze-gotisch-latin-600-normal.woff2) format("woff2");font-weight:400 900;font-display:swap}
@@ -18,8 +25,9 @@
   --serif:"IM Fell English", Georgia, serif; --caps:"Cinzel", Georgia, serif; --goth:"Grenze Gotisch", "Cinzel", serif;
 }
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;overflow:hidden;background:#000;color:var(--bone);font-family:var(--serif);-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none;touch-action:none}
-#c{position:fixed;inset:0;width:100%;height:100%;display:block;outline:none}
+html,body{margin:0;height:100%;overflow:hidden;background:#000;color:var(--bone);font-family:var(--serif);-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none;touch-action:none;overscroll-behavior:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
+img{-webkit-user-drag:none;-webkit-touch-callout:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;outline:none;touch-action:none}
 #ui{position:fixed;inset:0;pointer-events:none;z-index:2}
 #overlay{position:fixed;inset:0;pointer-events:none;z-index:1}
 button{font-family:var(--caps);cursor:pointer}
@@ -284,13 +292,158 @@ kbd{font-family:var(--caps);font-size:10px;color:var(--gold2);background:rgba(0,
 .hud-help{position:absolute;left:50%;bottom:112px;transform:translateX(-50%);font-family:var(--serif);font-size:13px;color:#7a7262;text-shadow:0 1px 3px #000;white-space:nowrap}
 body.no-help .hud-help{display:none}
 #hud.touch .hud-help{display:none}
+/* pause button (all screens) */
+.hud-pause{position:absolute;top:128px;right:16px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:rgba(12,10,10,.85);border:1px solid var(--line2);color:var(--gold2);box-shadow:0 0 0 2px rgba(0,0,0,.6)}
+.sheet-close{display:none;position:absolute;top:8px;right:10px;width:36px;height:36px;background:rgba(0,0,0,.4);border:1px solid var(--line2);color:var(--bone);font-size:16px;line-height:1}
+.detail{position:relative}
+
+/* ---------- narrower desktops / tablets ---------- */
 @media (max-width:900px){
   .hud-map{width:180px;height:72px}.hud-bars{width:170px}.hud-portrait{width:58px;height:58px}
+  .hud-pause{top:96px}
   .hud-card{width:54px;height:70px}.hud-card .nm{display:none}.hud-card img{height:100%}
   .hud-ab{width:46px;height:46px}.hud-ab.ult{width:54px;height:54px}
   .hero-cards{grid-template-columns:repeat(2,minmax(0,250px))}
   .muster{grid-template-columns:1fr}.muster aside{display:none}
+  /* unit details become a sheet that slides up when a unit is tapped */
+  .muster.has-sel aside{display:block;position:fixed;left:0;right:0;bottom:0;max-height:80vh;z-index:30;border:none;border-top:1px solid var(--gold);box-shadow:0 -20px 60px rgba(0,0,0,.85);padding:14px 16px calc(16px + env(safe-area-inset-bottom));overflow:auto;background:rgba(14,12,15,.98)}
+  .sheet-close{display:block}
   .herotab,.chronicle{grid-template-columns:1fr}
+}
+
+/* ---------- phones held sideways (short screens) ---------- */
+@media (max-height:520px){
+  .screen{overflow-y:auto;justify-content:safe center}
+  .btn{padding:8px 18px;font-size:13px;min-width:180px;margin:4px 0}
+  .btn small{font-size:11px}
+  .panel{padding:14px 20px;max-height:94vh}
+  .panel h2,.screen-title{font-size:28px;margin:0 0 8px}
+  .title-screen{padding-left:calc(6vw + env(safe-area-inset-left))}
+  .title-screen .logo{top:3vh}.title-screen .logo h1{font-size:clamp(44px,9vw,64px)}.title-screen .logo p{font-size:13px}
+  .title-screen .menu{margin-top:24vh}.title-screen .foot{display:none}
+  .hero-screen{padding:8px 12px}
+  .hero-cards{grid-template-columns:repeat(4,minmax(0,190px));gap:8px;margin-bottom:6px}
+  .hero-card{padding:8px 8px 10px}.hero-card .por{width:56px;height:56px;margin-bottom:4px}
+  .hero-card h3{font-size:12px}.hero-card .sub{font-size:11px;margin-bottom:4px}
+  .hero-card p{font-size:11.5px;min-height:0;margin-bottom:6px;line-height:1.3}
+  .hero-card .stats{display:none}.hero-card .abl{font-size:11px;gap:2px;margin-top:4px}
+  .dnote{min-width:0;font-size:13px}
+  .chip{padding:6px 10px;font-size:11px}
+  .hero-screen .row{margin-top:4px}.hero-screen .row .btn{margin:0}
+  .hero-card p{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .camp-screen{padding:8px calc(12px + env(safe-area-inset-right)) 0 calc(12px + env(safe-area-inset-left))}
+  .camp-screen header{padding-bottom:6px}.camp-screen header h2{font-size:26px}.camp-screen header h2 span{font-size:13px}
+  .purse{gap:12px;font-size:11px}.purse b{font-size:15px}
+  .tabs{margin:4px 0}.tabs button{font-size:11px;padding:6px 10px;letter-spacing:.14em}
+  .camp-screen footer{padding:6px 0 calc(8px + env(safe-area-inset-bottom))}
+  .camp-screen footer .btn{min-width:120px;padding:8px 12px;font-size:12px}
+  .loadout label{font-size:9px}.slot{width:38px;height:38px}
+  .grid{grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:6px}
+  .detail .dpor{width:84px;height:84px}.detail h3{font-size:16px}.detail p{font-size:13px}
+  .muster.has-sel aside{max-height:92vh;padding-top:10px}
+  .muster.has-sel aside .detail{display:grid;grid-template-columns:96px 1fr;gap:14px;align-items:start;padding-right:36px}
+  .muster.has-sel aside .detail .dpor{margin:4px 0 0}
+  .muster.has-sel aside .kv{grid-template-columns:1fr auto 1fr auto;gap:2px 12px;font-size:13px;margin:6px 0}
+  .muster.has-sel aside .detail p{margin:3px 0}
+  .uprow{padding:10px 12px}.uprow .btn{min-width:150px}
+  .talent{grid-template-columns:48px 1fr auto;gap:10px;padding:8px 10px}.talent .ic{width:44px;height:44px}.talent .btn{min-width:130px}
+  .results h1{font-size:40px}.results .sub{font-size:15px}.kv.big{font-size:14px;margin:8px 0}
+  .unlocks .ucard{width:64px}
+  .controls{font-size:12px;margin-top:8px}
+  .prologue p{font-size:17px}.chapter-card h1{font-size:44px}.chapter-card .p{font-size:15px}
+  .letterbox{height:6vh}
+  .dlg{bottom:7vh;padding:10px 14px;gap:12px;width:min(900px,92vw)}
+  .dlg-portrait{width:54px;height:54px}.dlg-body{min-height:54px}
+  .dlg-name{font-size:12px;margin:0 0 4px}.dlg-text{font-size:15px;min-height:0}
+  .choice{padding:7px 12px;font-size:13px}.choice .n{font-size:12px}
+  .dlg-skip{top:calc(6vh + 6px)}
+  .narr{bottom:12vh}.narr p{font-size:17px}
+  /* battle HUD */
+  .hud-hero{top:6px;left:calc(8px + env(safe-area-inset-left));gap:8px}
+  .hud-portrait{width:42px;height:42px}
+  .hud-bars{width:150px;gap:3px}
+  .hud-name{font-size:9px}
+  .bar.hp{height:11px}.bar b{font-size:8px;line-height:9px}
+  .hud-top{top:4px;width:min(340px,40vw)}
+  .hud-wave .w{font-size:10px;letter-spacing:.18em}.hud-wave .o{display:none}
+  .hud-struct{margin-top:4px;gap:10px}.sbar label{font-size:8px;margin-bottom:2px}.sbar .bar{height:6px}
+  .hud-boss{margin-top:4px}.hud-boss label{font-size:16px}.hud-boss .bar{height:9px}
+  .hud-map{top:6px;right:calc(8px + env(safe-area-inset-right));width:140px;height:56px}
+  .hud-pause{top:68px;right:calc(8px + env(safe-area-inset-right));width:36px;height:36px}
+  .hud-bottom{left:calc(8px + env(safe-area-inset-left));transform:none;bottom:calc(6px + env(safe-area-inset-bottom));gap:8px}
+  .cp-orb{width:50px;height:50px}.cp-orb .v{font-size:17px}.cp-orb small{font-size:7px}.cp-meta{font-size:8px}
+  .hud-cards{gap:4px}
+  .hud-card{width:46px;height:56px}.hud-card .nm,.hud-card kbd{display:none}.hud-card img{height:100%}.hud-card .cost{font-size:13px}.hud-card .cnt{top:18px}
+  .hud-abil{right:calc(10px + env(safe-area-inset-right));bottom:calc(8px + env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(2,52px);gap:8px}
+  .hud-ab,.hud-ab.ult{width:52px;height:52px}.hud-ab kbd{display:none}
+  .hud-toast{bottom:76px;font-size:14px}
+  .hud-banner{top:20vh}.hud-banner h1{font-size:32px}.hud-banner p{font-size:14px}
+  .hud-voice{top:24vh;font-size:14px}
+  .hud-respawn{font-size:24px}
+}
+
+/* ---------- phones held upright (narrow screens) ---------- */
+@media (max-width:600px){
+  .screen{overflow-y:auto;justify-content:safe center}
+  .btn{padding:11px 18px;font-size:13px;min-width:200px}
+  .panel{padding:18px 16px;max-width:94vw;max-height:92vh}
+  .panel h2,.screen-title{font-size:32px}
+  .row .btn{min-width:0;flex:1}
+  .title-screen{align-items:center;padding-left:0}
+  .title-screen .logo{top:calc(9vh + env(safe-area-inset-top))}.title-screen .logo h1{font-size:clamp(52px,16vw,84px)}
+  .title-screen .menu{margin-top:20vh}
+  .hero-screen{padding:calc(10px + env(safe-area-inset-top)) 10px calc(16px + env(safe-area-inset-bottom))}
+  .hero-cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}
+  .hero-card{padding:10px 8px}.hero-card .por{width:68px;height:68px}
+  .hero-card h3{font-size:13px}.hero-card .sub{font-size:11px}
+  .hero-card p{font-size:12px;min-height:0}.hero-card .stats{display:none}.hero-card .abl{font-size:11px}
+  .diff{flex-direction:column}.dnote{min-width:0;margin:6px 0 0;text-align:center;font-size:13px}
+  .camp-screen{padding:calc(10px + env(safe-area-inset-top)) 10px 0}
+  .camp-screen header{flex-direction:column;align-items:flex-start;gap:6px}
+  .camp-screen header h2{font-size:28px}.camp-screen header h2 span{display:block;margin:0;font-size:14px}
+  .purse{gap:14px;font-size:11px}.purse b{font-size:16px}
+  .tabs{overflow-x:auto;margin:8px 0}.tabs button{font-size:11px;padding:7px 10px;white-space:nowrap;letter-spacing:.14em}
+  .camp-screen footer{flex-wrap:wrap;justify-content:center;gap:8px;padding:8px 0 calc(10px + env(safe-area-inset-bottom))}
+  .camp-screen footer .btn{min-width:0;flex:1;padding:10px 8px;font-size:12px}
+  .loadout{order:-1;width:100%}.loadout label{width:100%;text-align:center;margin:0 0 4px}
+  .slot{width:40px;height:40px}
+  .grid{grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:6px}
+  .detail .dpor{width:100px;height:100px}
+  .uprow{flex-direction:column;align-items:stretch;gap:8px}.uprow .btn{min-width:0}
+  .talent{grid-template-columns:48px 1fr;gap:10px}.talent .ic{width:44px;height:44px}.talent .btn{grid-column:1/-1;min-width:0}
+  .results h1{font-size:44px}.kv.big{min-width:0;width:100%}
+  .pause .panel{min-width:0;width:92vw}
+  .letterbox{height:7vh}
+  .dlg{bottom:8vh;flex-direction:column;align-items:center;gap:8px;padding:12px 14px;width:94vw}
+  .dlg-portrait{width:58px;height:58px}.dlg-body{min-height:0;width:100%}
+  .dlg-name{text-align:center;font-size:13px}.dlg-text{font-size:16px;min-height:0}
+  .choice{font-size:14px;padding:10px 12px}
+  .dlg-skip{top:calc(7vh + 8px)}
+  .narr p{font-size:18px}
+  /* battle HUD */
+  .hud-hero{top:calc(6px + env(safe-area-inset-top));left:8px;gap:8px}
+  .hud-portrait{width:40px;height:40px}
+  .hud-bars{width:130px;gap:3px}
+  .hud-name{font-size:9px}.bar.hp{height:11px}.bar b{font-size:8px;line-height:9px}
+  .hud-map{display:none}
+  .hud-pause{top:calc(8px + env(safe-area-inset-top));right:8px;width:38px;height:38px}
+  .hud-top{top:calc(54px + env(safe-area-inset-top));left:10px;right:10px;width:auto;transform:none}
+  .hud-wave .w{font-size:10px;letter-spacing:.18em}.hud-wave .o{font-size:11px}
+  .hud-struct{gap:10px;margin-top:4px}.sbar label{font-size:8px;margin-bottom:2px}.sbar .bar{height:6px}
+  .hud-boss label{font-size:16px}.hud-boss .bar{height:9px}
+  .hud-bottom{left:6px;right:6px;transform:none;bottom:calc(6px + env(safe-area-inset-bottom));justify-content:center}
+  .hud-cp{position:absolute;left:2px;bottom:66px;flex-direction:row;gap:6px}
+  .cp-orb{width:52px;height:52px}.cp-orb .v{font-size:18px}.cp-orb small{font-size:7px}
+  .cp-meta{align-items:flex-start;font-size:8px}
+  .hud-cards{gap:4px;width:100%;justify-content:center}
+  .hud-card{flex:1 1 0;max-width:50px;height:60px}.hud-card .nm,.hud-card kbd{display:none}.hud-card img{height:100%}.hud-card .cost{font-size:13px}.hud-card .cnt{top:18px}
+  .hud-abil{right:6px;bottom:calc(72px + env(safe-area-inset-bottom));gap:8px}
+  .hud-ab,.hud-ab.ult{width:52px;height:52px}.hud-ab kbd{display:none}
+  .hud-toast,.hud-voice{white-space:normal;width:88vw;text-align:center}
+  .hud-toast{bottom:calc(138px + env(safe-area-inset-bottom));font-size:14px}
+  .hud-voice{top:22vh;font-size:15px}
+  .hud-banner{top:24vh}.hud-banner h1{font-size:30px}.hud-banner p{font-size:14px;padding:0 16px}
+  .hud-respawn{font-size:24px;padding:0 16px}
 }
 </style>
 </head>

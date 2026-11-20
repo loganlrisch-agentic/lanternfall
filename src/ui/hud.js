@@ -34,6 +34,7 @@ export class HUD {
         <div class="hud-boss"><label></label><div class="bar"><i></i><b></b></div></div>
       </div>
       <canvas class="hud-map" width="260" height="104"></canvas>
+      <button class="hud-pause" title="Pause (Esc)" aria-label="Pause">${icon('pause', 22)}</button>
       <div class="hud-bottom">
         <div class="hud-cp"><div class="cp-orb" title="War chest: coin builds up over time and from kills"><span class="v">0</span><small>COIN</small></div><div class="cp-meta"><span class="rate"></span><span class="pop"></span></div></div>
         <div class="hud-cards"></div>
@@ -72,6 +73,7 @@ export class HUD {
   }
 
   setupTouch() {
+    $('.hud-pause', this.el).addEventListener('click', () => { this.input.edge('TouchPause'); audio.play('ui'); });
     // taps on the battlefield arrive as clicks through Input; buttons and cards handle themselves
     if (this.input.isTouch) this.el.classList.add('touch');
   }

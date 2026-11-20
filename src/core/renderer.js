@@ -74,6 +74,8 @@ export class Renderer {
     r.outputColorSpace = THREE.SRGBColorSpace;
     this.dynScale = 1;
     this.frameTimes = [];
+    // phones and tablets: cap the render resolution and use FXAA instead of MSAA
+    this.mobile = matchMedia('(pointer: coarse)').matches;
     this.qualityName = 'medium';
     this.scene = null;
     this.camera = null;
@@ -96,7 +98,8 @@ export class Renderer {
     if (this.composer) { this.composer.renderTarget1.dispose(); this.composer.renderTarget2.dispose(); }
     const q = this.q || QUALITY.medium;
     const size = this.size();
-    const rt = new THREE.WebGLRenderTarget(size.w, size.h, { type: THREE.HalfFloatType, samples: q.msaa });
+    const msaa = this.mobile && this.qualityName !== 'ultra' ? 0 : q.msaa;
+    const rt = new THREE.WebGLRenderTarget(size.w, size.h, { type: THREE.HalfFloatType, samples: msaa });
     const composer = new EffectComposer(this.renderer, rt);
     composer.setPixelRatio(this.pixelRatio());
     composer.setSize(size.w, size.h);
@@ -122,14 +125,15 @@ export class Renderer {
     composer.addPass(new OutputPass());
     this.grade = new ShaderPass(GradeShader);
     composer.addPass(this.grade);
-    if (!q.msaa) composer.addPass(new FXAAPass());
+    if (!msaa) composer.addPass(new FXAAPass());
     this.composer = composer;
     this.resize();
   }
 
   pixelRatio() {
     const q = this.q || QUALITY.medium;
-    return Math.max(0.5, Math.min(window.devicePixelRatio || 1, q.pr) * this.dynScale);
+    const cap = this.mobile ? Math.min(q.pr, this.qualityName === 'ultra' ? 1.5 : 1.0) : q.pr;
+    return Math.max(0.5, Math.min(window.devicePixelRatio || 1, cap) * this.dynScale);
   }
   size() { return { w: Math.max(1, this.canvas.clientWidth || window.innerWidth), h: Math.max(1, this.canvas.clientHeight || window.innerHeight) }; }
 
@@ -140,12 +144,20 @@ export class Renderer {
     this.renderer.setSize(w, h, false);
     if (this.composer) { this.composer.setPixelRatio(pr); this.composer.setSize(w, h); }
     if (this.ao) this.ao.setSize(w * pr, h * pr);
-    if (this.camera) { this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); }
+    if (this.camera) {
+      const c = this.camera;
+      if (c.userData.baseFov == null) c.userData.baseFov = c.fov;
+      c.aspect = w / h;
+      // tall screens get a wider lens so story shots and the battlefield don't feel like a keyhole
+      c.fov = c.aspect < 0.9 ? Math.min(72, c.userData.baseFov * 1.3) : c.userData.baseFov;
+      c.updateProjectionMatrix();
+    }
   }
 
   setShadowLight(light) {
     const q = this.q || QUALITY.medium;
-    light.shadow.mapSize.set(q.shadow, q.shadow);
+    const sz = this.mobile ? Math.min(q.shadow, 2048) : q.shadow;
+    light.shadow.mapSize.set(sz, sz);
     if (light.shadow.map) { light.shadow.map.dispose(); light.shadow.map = null; }
   }
 

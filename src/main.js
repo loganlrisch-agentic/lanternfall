@@ -40,8 +40,8 @@ class Game {
     this.makePortraits();
     prog(1);
     this.world.lightning.onThunder = () => audio.play('thunder', null, 0.8);
-    window.addEventListener('pointerdown', () => audio.init());
-    window.addEventListener('keydown', () => audio.init());
+    // iOS only lets audio start inside certain gestures, so try on all of them
+    for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) window.addEventListener(ev, () => audio.init(), { passive: true });
     this.applySettings();
     this.last = performance.now();
     requestAnimationFrame(() => this.loop());

@@ -1,5 +1,6 @@
 // Small stroke icons for abilities and commands (original SVG glyphs).
 const P = {
+  pause: '<path d="M9 5 v14"/><path d="M15 5 v14"/>',
   charge: '<path d="M4 20 L14 10 M10 6 h8 v8 M14 10 L20 4"/><path d="M3 13 l4 4"/>',
   banner: '<path d="M6 21 V3"/><path d="M6 4 h11 l-3 4 3 4 H6"/>',
   spin: '<path d="M12 3 a9 9 0 1 1 -8.5 6"/><path d="M3 4 v5 h5"/><path d="M12 8 l2 4 -2 4 -2 -4z"/>',
