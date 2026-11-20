@@ -34,10 +34,15 @@ export const A = {
 import { globalUniforms } from './uniforms.js';
 export { globalUniforms };
 
-// Hosts that refuse to serve .glb (the claude.ai artifact preview) get the same
-// bytes as base64 text: index.html sets window.LF_PACKED and tools/build-artifact.mjs
-// writes <name>.glb.txt beside each model. Vercel and local dev use the plain .glb.
+// Two ways to get the asset bytes:
+// - normal (Vercel, local dev): fetch the .glb / .mp3 files.
+// - packed (the claude.ai artifact viewer): tools/build-artifact.mjs turns every file
+//   into small script files holding base64, and index.html sets window.LF_PACKED and
+//   window.LF_PACK_INDEX. Scripts load under the same rules as game.js itself, so this
+//   works in viewers (like the phone apps) that block fetch() for the page's own files.
+// Either way downloads run a few at a time and retry, which phones on mobile data need.
 const PACKED = typeof window !== 'undefined' && !!window.LF_PACKED;
+const PACK_INDEX = (typeof window !== 'undefined' && window.LF_PACK_INDEX) || {};
 if (PACKED) {
   // decode embedded textures through <img> so strict CSPs that block fetch(blob:) still work
   loader.register(parser => {
@@ -46,15 +51,55 @@ if (PACKED) {
   });
 }
 function b64ToBuffer(txt) {
-  const bin = atob(txt.trim());
+  const bin = atob(txt);
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out.buffer;
 }
-const loadGLB = url => PACKED
-  ? fetch(url + '.txt').then(r => { if (!r.ok) throw new Error(url + ' ' + r.status); return r.text(); })
-      .then(t => new Promise((res, rej) => loader.parse(b64ToBuffer(t), '', res, rej)))
-  : new Promise((res, rej) => loader.load(url, res, undefined, rej));
+// at most `n` downloads in flight
+function limiter(n) {
+  let active = 0; const queue = [];
+  const next = () => { if (active >= n || !queue.length) return; active++; const { fn, res, rej } = queue.shift(); fn().then(res, rej).finally(() => { active--; next(); }); };
+  return fn => new Promise((res, rej) => { queue.push({ fn, res, rej }); next(); });
+}
+const slot = limiter(PACKED ? 4 : 6);
+async function retry(fn, label, tries = 3) {
+  for (let i = 0; ; i++) {
+    try { return await fn(); } catch (e) {
+      if (i >= tries - 1) throw new Error(`${label} (${e && e.message ? e.message : e})`);
+      await new Promise(r => setTimeout(r, 500 * (i + 1)));
+    }
+  }
+}
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    const el = document.createElement('script');
+    el.src = src; el.async = true;
+    el.onload = () => { el.remove(); res(); };
+    el.onerror = () => { el.remove(); rej(new Error('script did not load')); };
+    document.head.appendChild(el);
+  });
+}
+let ASSET_BASE = './assets';
+// bytes of one packed asset, e.g. key 'chars/Knight.glb'
+async function packedBytes(key) {
+  const parts = PACK_INDEX.files?.[key];
+  if (!parts) throw new Error('not in the pack');
+  for (let i = 0; i < parts; i++) await slot(() => retry(() => loadScript(`${ASSET_BASE}/${key}.${i}.js`), `${key} part ${i + 1}`));
+  const store = window.__LFP || {};
+  const b64 = (store[key] || []).join('');
+  delete store[key];
+  if (!b64) throw new Error('empty pack');
+  return b64ToBuffer(b64);
+}
+const fetchBytes = url => fetch(url).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); });
+const parseGLB = buf => new Promise((res, rej) => loader.parse(buf, '', res, rej));
+const loadGLB = url => {
+  const key = url.slice(ASSET_BASE.length + 1);
+  return PACKED
+    ? retry(() => packedBytes(key), key, 2).then(parseGLB)
+    : slot(() => retry(() => fetchBytes(url), key)).then(parseGLB);
+};
 
 function tuneMaterial(m, env = false) {
   if (!m || m.userData.tuned) return;
@@ -75,6 +120,7 @@ function tuneMaterial(m, env = false) {
 }
 
 export async function loadAssets(base, onProgress = () => {}) {
+  ASSET_BASE = base;
   let done = 0;
   const total = CHAR_FILES.length + 2 + SCENE_PACKS.length + 1;
   const tick = () => onProgress(++done / total);
@@ -101,7 +147,18 @@ export async function loadAssets(base, onProgress = () => {}) {
       tick();
     }));
   }
-  jobs.push(Promise.all(SFX.map(n => fetch(`${base}/sfx/${n}.mp3`).then(r => r.ok ? r.arrayBuffer() : null).then(b => { if (b) A.sfx[n] = b; }).catch(() => {}))).then(tick));
+  // sound effects are optional: a missing one just stays silent
+  if (PACKED) {
+    jobs.push((async () => {
+      for (let i = 0; i < (PACK_INDEX.sfx || 0); i++) {
+        try { await slot(() => retry(() => loadScript(`${base}/sfx-pack.${i}.js`), 'sounds')); } catch (e) { console.warn(e); }
+      }
+      const store = window.__LFP || {};
+      for (const n of SFX) { const k = `sfx/${n}.mp3`; if (store[k]) { A.sfx[n] = b64ToBuffer(store[k].join('')); delete store[k]; } }
+    })().then(tick));
+  } else {
+    jobs.push(Promise.all(SFX.map(n => slot(() => retry(() => fetchBytes(`${base}/sfx/${n}.mp3`), n, 2)).then(b => { A.sfx[n] = b; }).catch(() => {}))).then(tick));
+  }
   await Promise.all(jobs);
 }
 

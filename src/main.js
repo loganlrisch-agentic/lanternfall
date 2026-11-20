@@ -34,7 +34,7 @@ class Game {
     this.screens = new Screens(ui, this);
     const bar = document.querySelector('#loading .fill');
     const txt = document.querySelector('#loading .pct');
-    const prog = p => { bar.style.width = (p * 100).toFixed(0) + '%'; txt.textContent = p < 1 ? `Kindling the lantern… ${(p * 100).toFixed(0)}%` : 'Ready'; };
+    const prog = p => { if (window.__lfFailed) return; bar.style.width = (p * 100).toFixed(0) + '%'; txt.textContent = p < 1 ? `Kindling the lantern… ${(p * 100).toFixed(0)}%` : 'Ready'; };
     await loadAssets('./assets', p => prog(p * 0.9));
     await sleep(30);
     this.makePortraits();
@@ -351,6 +351,9 @@ class Game {
 
 new Game().boot().catch(e => {
   console.error(e);
+  window.__lfFailed = true;   // stop late progress updates from hiding the error
   const l = document.querySelector('#loading .pct');
-  if (l) l.textContent = 'The lantern failed to light: ' + (e && e.message ? e.message : e);
+  if (!l) return;
+  const msg = String(e && e.message ? e.message : e).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+  l.innerHTML = `The lantern failed to light.<br><small style="opacity:.7">${msg}</small><br><button class="btn" style="margin-top:14px;min-width:160px" onclick="location.reload()">Try again</button>`;
 });
