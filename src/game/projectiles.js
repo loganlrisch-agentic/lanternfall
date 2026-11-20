@@ -20,6 +20,10 @@ export const PTYPES = {
   boulder: { mesh: 'projectile_catapult', scale: 3.4, speed: 24, arc: 0.42, sfx: 'catapult', impact: 'boom' },
   cannonball: { mesh: 'projectile_cannonball', scale: 3.2, speed: 42, arc: 0.04, sfx: 'cannon', impact: 'boom', trail: 0x5a5a5a },
   bomb: { mesh: 'smokebomb', scale: 1.4, speed: 18, arc: 0.35, trail: 0xff8a3a, sfx: 'throw', impact: 'fire', burn: 8 },
+  frost: { orb: [1.4, 2.6, 4], size: 0.3, speed: 22, trail: 0x9ad8ff, homing: true, sfx: 'ice', impact: 'arcane', chill: 2.5 },
+  shuriken: { mesh: 'Ninja_Shuriken', scale: 1.6, speed: 34, arc: 0.04, sfx: 'whoosh', impact: 'arrow', spin: true },
+  javelin: { mesh: 'Caveman_Spear', scale: 1.3, speed: 28, arc: 0.16, sfx: 'whoosh', impact: 'arrow' },
+  storm: { orb: [2.4, 3, 4.4], size: 0.28, speed: 40, trail: 0xbfe0ff, homing: true, sfx: 'thunder', impact: 'arcane' },
 };
 
 const orbGeo = new THREE.IcosahedronGeometry(1, 1);
@@ -116,6 +120,7 @@ export class Projectiles {
           _v.copy(p.pos).sub(p.prev);
           if (_v.lengthSq() > 1e-6) { _q.copy(p.pos).add(_v); p.mesh.lookAt(_q); }
           if (p.type === 'boulder' || p.type === 'bomb') p.mesh.rotation.x += dt * 8;
+          if (p.def.spin) p.mesh.rotation.y += dt * 24;
         }
         if (k >= 1) { done = true; this.land(p); }
       }
@@ -141,6 +146,7 @@ export class Projectiles {
       const mult = t.isStructure && p.src.def?.vsStructure ? p.src.def.vsStructure : 1;
       t.takeDamage(p.dmg * mult, p.src, { pierceArmor: p.pierceArmor, ranged: true });
       if (p.burn && t.addStatus) { t.addStatus('burn', 3, p.burn); if (t.status.burn) t.status.burn.src = p.src; }
+      if (p.def.chill && t.addStatus) t.addStatus('chill', p.def.chill);
       if (p.type === 'blood' && p.src.alive) p.src.heal(p.dmg * 0.4, true);
     } else {
       // free shot: hit whoever is standing at the landing point

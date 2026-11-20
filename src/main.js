@@ -280,15 +280,19 @@ class Game {
     if (this.autoT % 150 === 0) f.ability.F = true;
     if (this.autoT % 400 === 0) f.ability.E = true;
     if (this.autoT % 900 === 0) f.ability.R = true;
-    // call in a balanced army: the affordable card with the fewest of its kind on the field
-    if (Math.random() < 0.03) {
-      let pickI = -1, fewest = 1e9;
+    // call in a balanced army like a player would: pick the unit the army is shortest of
+    // (by soldiers on the field per card) and save up for it rather than buying the cheapest thing
+    if (!this.autoWant || this.autoT % 600 === 0) {
+      let best = -1, fewest = 1e9;
       b.cards.forEach((c, i) => {
-        if (b.coins < c.def.cost || c.cd > 0) return;
-        const n = b.army.units.filter(u => u.def === c.def).length + Math.random() * 0.5;
-        if (n < fewest) { fewest = n; pickI = i; }
+        const n = b.army.units.filter(u => u.def === c.def).length / (c.def.count || 1) + Math.random() * 0.6;
+        if (n < fewest && b.pop + c.def.pop * c.def.count <= b.popCap) { fewest = n; best = i; }
       });
-      if (pickI >= 0) f.summon = pickI;
+      this.autoWant = best >= 0 ? b.cards[best] : null;
+    }
+    const want = this.autoWant;
+    if (want && b.coins >= want.def.cost && want.cd <= 0 && b.pop + want.def.pop * want.def.count <= b.popCap && Math.random() < 0.05) {
+      f.summon = b.cards.indexOf(want); this.autoWant = null;
     }
     return f;
   }
@@ -301,6 +305,14 @@ class Game {
     this.save.chapter = ch;
     this.save.loadout = (params.get('loadout') || 'militia,footman,archer,bannerman,shieldbearer,cleric,adept,paladin').split(',');
     for (const k of ['spareCursed', 'orcs', 'redeemAldous']) this.save.flags[k] = true;
+    // vet=1: the progress a player would typically have by this chapter (hero level, fort upgrades, veterans)
+    if (params.get('vet')) {
+      const r = Math.max(0, ch - 2);
+      this.save.level = 1 + (ch - 1) * 2;
+      for (const k of ['walls', 'towers', 'barracks', 'armory', 'plate']) this.save.upgrades[k] = r;
+      for (const k of ['lantern', 'horn']) this.save.upgrades[k] = Math.max(0, r - 1);
+      if (ch >= 3) for (const id of this.save.loadout) this.save.unitLevels[id] = 2;
+    }
     this.battle = new Battle(this, CHAPTERS[ch - 1], this.save);
     this.hud.setup(this.battle);
     this.world.fx.setPixelScale(window.innerHeight);
@@ -330,7 +342,7 @@ class Game {
         simulated += dt;
         if (window.__result) break;
       }
-      window.__progress = { simulated: Math.round(simulated), units: this.battle?.units.length, wave: this.battle?.waveIdx, castle: Math.round(this.battle?.castle.hp || 0), rift: Math.round(this.battle?.rift.hp || 0), boss: !!this.battle?.boss, state: this.battle?.state, kills: this.battle?.stats.kills, hero: this.battle && { hp: Math.round(this.battle.hero.hp), lvl: this.battle.hero.level, x: Math.round(this.battle.hero.pos.x) } };
+      window.__progress = { simulated: Math.round(simulated), units: this.battle?.units.length, wave: this.battle?.waveIdx, castle: Math.round(this.battle?.castle.hp || 0), rift: Math.round(this.battle?.rift.hp || 0), boss: !!this.battle?.boss, state: this.battle?.state, kills: this.battle?.stats.kills, army: this.battle?.popStats && { avgFill: +(this.battle.popStats.fill / Math.max(1, this.battle.popStats.t)).toFixed(2), fullPct: Math.round(100 * this.battle.popStats.full / Math.max(1, this.battle.popStats.t)), spent: this.battle.popStats.spent, lost: this.battle.stats.lost }, hero: this.battle && { hp: Math.round(this.battle.hero.hp), lvl: this.battle.hero.level, x: Math.round(this.battle.hero.pos.x) } };
       if (simulated >= simSeconds || window.__result) {
         const dt = 1 / 30 * speed;
         if (this.battle) this.battle.update(dt, this.auto ? this.autoInput(this.input.frame()) : this.input.frame());

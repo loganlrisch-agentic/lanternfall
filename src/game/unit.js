@@ -32,6 +32,7 @@ class Animator {
     if (!a) return;
     a.timeScale = ts;
     if (this.baseName === name) return;
+    this.switches = (this.switches || 0) + 1;   // counted for the smoothness test
     a.reset().setLoop(THREE.LoopRepeat, Infinity);
     a.enabled = true;
     if (this.base && !this.shot) { this.base.fadeOut(fade); a.fadeIn(fade); } else if (!this.shot) a.fadeIn(fade);
@@ -198,7 +199,7 @@ export class Unit {
     if (!this.alive) return 0;
     if (this.status.invuln) return 0;
     let a = amount;
-    const armor = Math.max(0, this.armor * (1 - (o.pierceArmor || 0)));
+    const armor = Math.max(0, (this.armor + (this.buffs.armor || 0)) * (1 - (o.pierceArmor || 0)));
     a *= 20 / (20 + armor);
     if (this.status.curse) a *= 1 + this.status.curse.v;
     if (this.blockFactor && o.dir) a *= this.blockFactor(o.dir);
@@ -293,7 +294,11 @@ export class Unit {
   }
 
   // ---------------- AI ----------------
-  aggroRange() { return this.isRanged ? this.range + 5 : (this.isBoss ? 18 : 12); }
+  aggroRange() {
+    // a boss marches on the walls: it only stops for whatever stands in its way
+    if (this.isBoss && this.team === TEAM.ENEMY) return 8;
+    return this.isRanged ? this.range + 5 : (this.isBoss ? 18 : 12);
+  }
 
   think(dt) {
     const B = this.B;
@@ -336,7 +341,8 @@ export class Unit {
     // melee won't chase far from the line
     if (this.target && !this.target.isStructure && !this.isRanged) {
       const tl = Math.hypot(this.target.pos.x - slot.x, this.target.pos.z - slot.z);
-      if (tl > (this.role === 'front' ? 11 : 13)) this.target = null;
+      const hunting = this.target.isBoss || (this.target.target && this.target.target.army === A);
+      if (tl > (hunting ? 24 : this.role === 'front' ? 15 : 17)) this.target = null;
     }
     if (this.retarget <= 0) { this.retarget = 0.22 + Math.random() * 0.16; this.acquireArmy(slot); }
     this.specials(dt);
@@ -348,6 +354,9 @@ export class Unit {
     if (this.disabled) { this.vel.multiplyScalar(0.8); return; }
     const t = this.target;
     let goal = null, inSlot = false;
+    if (t) this.regroupT = 1.0 + Math.random() * 0.6; else this.regroupT = Math.max(0, (this.regroupT || 0) - dt);
+    // after a fight, catch a breath where you stand before walking back to the line
+    if (!t && this.regroupT > 0 && A.speed < 0.5) { this.desired = 0; return; }
     if (t) {
       const d = this.distTo(t);
       const reach = this.range + (t.radius || 0.6) + this.radius * 0.5;
@@ -377,19 +386,25 @@ export class Unit {
     const B = this.B, A = this.army;
     const sp = this.def.special || {};
     const ranged = this.isRanged || this.anims.siege;
-    const engage = ranged ? this.range + 1.5 : (this.role === 'front' ? 8.5 : 7.5);
+    const engage = ranged ? this.range + 1.5 : (this.role === 'front' ? 10 : 9);
     const ox = ranged ? this.pos.x : slot.x, oz = ranged ? this.pos.z : slot.z;
     let best = null, bestScore = Infinity;
-    for (const o of B.query(ox, oz, engage + 4)) {
+    for (const o of B.query(ox, oz, Math.max(engage, ranged ? 0 : 22) + 6)) {
       if (o.team === this.team || !o.alive || o.stealth || o.isStructure) continue;
-      const d = Math.hypot(o.pos.x - ox, o.pos.z - oz);
-      if (d > engage) continue;
+      // distance from the slot, or from where the soldier actually stands (whichever is nearer)
+      const d = Math.min(Math.hypot(o.pos.x - ox, o.pos.z - oz), Math.hypot(o.pos.x - this.pos.x, o.pos.z - this.pos.z) + 1);
+      // break ranks for the boss, or for anyone shooting at the formation from out of reach
+      const shooter = o.isRanged && o.target && o.target.army === A;
+      const reach = ranged ? engage : (o.isBoss ? 22 : shooter ? 20 : engage);
+      if (d > reach) continue;
       let score = d;
       if (o.target === this) score -= 3;                               // answer whoever is hitting me
       else if (o.target && o.target.army === A) score -= 1.5;          // protect a comrade
       else if (o.target && o.target.isHero) score -= 2;                // protect the commander
       score += (A.targetCount.get(o) || 0) * (ranged ? 0.25 : 1.4);   // melee spread out, archers can stack
       if (ranged && o === A.focus) score -= 2.5;                       // volley fire on the closest threat
+      if (o.isBoss) score -= ranged ? 6 : 4;                            // everyone turns on the boss
+      if (!ranged && shooter && d > engage) score += 3;                 // but deal with what's close first
       if (sp.hunter && o.isRanged) score -= 10;
       if (o.def?.special?.taunt && d < o.def.special.taunt) score -= 8;
       if (this.target === o) score -= 1.5;
@@ -407,16 +422,29 @@ export class Unit {
     const A = this.army;
     const dx = goal.x - this.pos.x, dz = goal.z - this.pos.z;
     const d = Math.sqrt(dx * dx + dz * dz);
-    if (d < (inSlot ? 0.35 : 0.2)) {
-      this.desired = 0;
-      if (inSlot) this.facing = angleLerp(this.facing, A.facing, Math.min(1, dt * 5));
-      return;
+    if (inSlot) {
+      const marching = A.speed > 0.4;
+      // settled soldiers stay put until their slot has really moved away (no twitching)
+      if (!marching && this.settled && d < 1.5) { this.desired = 0; this.faceFormation(dt); return; }
+      if (!marching && d < 0.5) { this.settled = true; this.desired = 0; this.faceFormation(dt); return; }
+      this.settled = false;
+      // keep pace with the block, a little faster when behind
+      this.desired = Math.min(this.speed, A.speed + d * 1.4);
+      if (this.desired < 0.5) { this.desired = 0; this.faceFormation(dt); return; }
+      this.desired = Math.max(this.desired, Math.min(this.speed, 1.1));   // never glide in an idle pose
+    } else {
+      this.settled = false;
+      this.desired = this.speed;
     }
-    // in formation: ease into the slot and match the block's pace instead of sprinting ahead
-    this.desired = inSlot ? Math.min(this.speed, A.speed + d * 2.4) : this.speed;
     this.dirX = dx / d; this.dirZ = dz / d;
-    const faceYaw = inSlot && d < 1.2 ? A.facing : Math.atan2(dx, dz);
-    this.facing = angleLerp(this.facing, faceYaw, Math.min(1, dt * 8));
+    this.facing = angleLerp(this.facing, Math.atan2(dx, dz), Math.min(1, dt * 6));
+  }
+
+  faceFormation(dt) {
+    const want = this.army.facing;
+    let diff = want - this.facing;
+    diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+    if (Math.abs(diff) > 0.3) this.facing = angleLerp(this.facing, want, Math.min(1, dt * 3));
   }
 
   idleGoal() {
@@ -621,7 +649,7 @@ export class Unit {
       const r = this.radius + o.radius;
       if (d2 < r * r && d2 > 1e-5) {
         const d = Math.sqrt(d2);
-        const push = (r - d) / r * (o.isLarge && !this.isLarge ? 2.4 : 1.2);
+        const push = (r - d) / r * (o.isLarge && !this.isLarge ? 2.4 : (this.army && o.army === this.army ? 0.8 : 1.2));
         sx += dx / d * push; sz += dz / d * push;
       }
     }
@@ -635,8 +663,12 @@ export class Unit {
     // locomotion animation
     if (this.animator && !this.animator.shot) {
       const sp = Math.sqrt(vx * vx + vz * vz);
-      if (sp > 0.6 && want > 0) {
-        const walk = this.anims.walk && (this.baseSpeed < 3.0 || (this.def.undead && this.team === TEAM.ENEMY && this.def.anim?.startsWith('skel') && !this.target));
+      // hysteresis: start moving above 0.9, stop below 0.35, so a soldier settling into place doesn't flicker
+      this._mv = want > 0 && (this._mv ? sp > 0.35 : sp > 0.9);
+      if (this._mv) {
+        // walk when slow (marching in step), run when fast; again with a band so it doesn't flip
+        if (this._walk ? sp > 3.6 : sp < 2.9) this._walk = !this._walk;
+        const walk = this.anims.walk && (this.baseSpeed < 3.0 || (this.army && this._walk) || (this.def.undead && this.team === TEAM.ENEMY && this.def.anim?.startsWith('skel') && !this.target));
         if (walk) this.animator.loop(this.anims.walk, clamp(sp / 2.2, 0.6, 1.5));
         else this.animator.loop(this.anims.move || 'Running_A', clamp(sp / (this.isLarge ? 3.8 : 5.2), 0.6, 1.6));
       } else this.animator.loop(this.anims.idle || 'Idle_A', 1);

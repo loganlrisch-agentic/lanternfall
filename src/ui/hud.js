@@ -29,7 +29,7 @@ export class HUD {
         <div class="hud-wave"><span class="w"></span><span class="o"></span></div>
         <div class="hud-struct">
           <div class="sbar castle"><label>Dawnhold</label><div class="bar"><i></i></div></div>
-          <div class="sbar rift"><label></label><div class="bar"><i></i></div><span class="shield" title="Shielded until the last wave breaks">${icon('shield', 16)}</span></div>
+          <div class="sbar rift dawn"><label>Until dawn</label><div class="bar"><i></i></div></div>
         </div>
         <div class="hud-boss"><label></label><div class="bar"><i></i><b></b></div></div>
       </div>
@@ -83,7 +83,6 @@ export class HUD {
     const hero = B.hero;
     $('.hud-portrait img', this.el).src = A.portraits['hero_' + hero.classId] || '';
     $('.hud-name .n', this.el).textContent = hero.cls.name;
-    $('.sbar.rift label', this.el).textContent = B.chapter.rift.replace(/^the /, 'The ');
     // cards
     const cards = $('.hud-cards', this.el);
     cards.innerHTML = '';
@@ -143,11 +142,10 @@ export class HUD {
     $('.bar.xp i', this.el).style.width = ((hero.xpPool || 0) / hero.xpToNext() * 100) + '%';
     // wave
     const w = B.waveIdx;
-    $('.hud-wave .w', this.el).textContent = B.bossSpawned ? 'The stronghold is exposed' : w < 0 ? `The fog gathers… ${Math.ceil(B.waveTimer)}s` : `Wave ${w + 1} / ${B.chapter.waves.length}`;
+    $('.hud-wave .w', this.el).textContent = B.bossSpawned ? 'The last hour of the night' : w < 0 ? `The fog gathers… ${Math.ceil(B.waveTimer)}s` : `Wave ${w + 1} / ${B.waves.length}`;
     $('.sbar.castle i', this.el).style.width = (B.castle.hp / B.castle.maxHp * 100) + '%';
     $('.sbar.castle', this.el).classList.toggle('low', B.castle.hp / B.castle.maxHp < 0.3);
-    $('.sbar.rift i', this.el).style.width = (B.rift.hp / B.rift.maxHp * 100) + '%';
-    $('.sbar.rift', this.el).classList.toggle('shielded', B.rift.invulnerable);
+    $('.sbar.rift i', this.el).style.width = (B.nightProgress * 100) + '%';
     if (this.boss) {
       const b = $('.hud-boss', this.el);
       $('i', b).style.width = (Math.max(0, this.boss.hp) / this.boss.maxHp * 100) + '%';

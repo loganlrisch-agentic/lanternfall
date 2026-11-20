@@ -26,7 +26,7 @@ export const CHAPTERS = [
   {
     n: 1, id: 'lantern', title: 'The Last Lantern', place: 'Dawnhold', biome: 'dawnhold', fortress: 'barrow', seed: 11,
     shrines: [[-24, -15], [16, 14]], fortressHP: 3000, rift: 'the Barrow Rift', reward: 400,
-    objective: 'Hold the wall. When the fog thins, break the Barrow Rift.',
+    objective: 'Hold the wall until dawn. Morrow the Bonecaller comes in the last hour; kill him and the barrow closes.',
     waves: [
       w('The fog stirs. Something walks in it.', ['thrall', 5]),
       w('More shapes in the mist.', ['thrall', 7], ['arbalist', 2]),
@@ -58,7 +58,7 @@ export const CHAPTERS = [
   {
     n: 2, id: 'thornwood', title: 'The Singing Wood', place: 'The Thornwood', biome: 'thornwood', fortress: 'witchgrove', seed: 23,
     shrines: [[-26, 14], [4, -16], [36, 12]], fortressHP: 4200, rift: 'the Witch-Grove', reward: 500,
-    objective: 'Hold the Wardens\' keep. Burn the Witch-Grove.',
+    objective: 'Hold the Wardens\' keep through the night. When Hexmother Morwen comes, cut her down and the grove dies with her.',
     waves: [
       w('Eyes in the trees.', ['wolf', 6]),
       w('The coven sends its dead.', ['thrall', 6], ['wolf', 4], ['witch', 1]),
@@ -73,7 +73,7 @@ export const CHAPTERS = [
       ['fenra', 'You came. I stopped hoping three nights ago.'],
       ['fenra', 'The wolves came back wrong. They walk on two legs now, and they wear our children\'s voices.'],
       ['maren', 'The coven at Witchmere has opened a grove to the fog. They feed it, Warden. And it feeds them.'],
-      ['fenra', 'Burn the grove. I\'ll show you where the roots run deepest.'],
+      ['fenra', 'We can\'t reach the grove. But the Hexmother will come to see us broken. Hold the keep till she does, then kill her, and the grove dies with her.'],
       ['voice', 'So much green... it will look lovely grey.'],
     ],
     outro: [
@@ -90,7 +90,7 @@ export const CHAPTERS = [
   {
     n: 3, id: 'highforge', title: 'The Frozen Forge', place: 'Highforge Pass', biome: 'highforge', fortress: 'frozenbreach', seed: 37,
     shrines: [[-20, -16], [14, 15]], fortressHP: 5500, rift: 'the Frozen Breach', reward: 600,
-    objective: 'Hold Highforge\'s gate. Shatter the Frozen Breach.',
+    objective: 'Hold Highforge\'s gate until dawn. Break the Rimebound when it walks out of the ice.',
     waves: [
       w('Frost on the bones. The dead march out of the storm.', ['rimewight', 4], ['thrall', 6]),
       w('Crossbows in the blizzard.', ['arbalist', 5], ['rimewight', 4], ['hexer', 2]),
@@ -120,7 +120,7 @@ export const CHAPTERS = [
   {
     n: 4, id: 'redmaw', title: 'The Red Maw', place: 'The Ash Road', biome: 'redmaw', fortress: 'warcamp', seed: 51,
     shrines: [[-22, 15], [8, -14], [38, 16]], fortressHP: 6000, rift: 'the War Totem', reward: 700,
-    objective: 'Hold Dawnhold against the horde. Topple the War Totem.',
+    objective: 'Hold Dawnhold against the horde all night. Warchief Gorza leads the last charge himself.',
     waves: [
       w('Drums in the red haze.', ['wildling', 8]),
       w('The Red Maw charges.', ['raider', 5], ['wildling', 6]),
@@ -150,7 +150,7 @@ export const CHAPTERS = [
   {
     n: 5, id: 'drowned', title: 'The Drowned Cathedral', place: 'Saint\'s Mire', biome: 'drowned', fortress: 'cathedral', seed: 67,
     shrines: [[-24, -14], [6, 16], [40, -12]], fortressHP: 7000, rift: 'the Drowned Cathedral', reward: 800,
-    objective: 'Hold the Saint\'s Bastion. Breach the Drowned Cathedral.',
+    objective: 'Hold the Saint\'s Bastion until the bells ring dawn. Sir Aldous rides out last.',
     waves: [
       w('Bells under the water. Someone is ringing them.', ['thrall', 10], ['dreadguard', 2]),
       w('Knights in black iron.', ['dreadguard', 4], ['arbalist', 5], ['hexer', 3]),
@@ -184,7 +184,7 @@ export const CHAPTERS = [
   {
     n: 6, id: 'lanternfall', title: 'Lanternfall', place: 'Dawnhold', biome: 'citadel', fortress: 'citadel', seed: 83,
     shrines: [[-24, 14], [-2, -16], [30, 15]], fortressHP: 9000, rift: 'the Pale Citadel', reward: 0,
-    objective: 'Hold Dawnhold. End the Pale Regent.',
+    objective: 'Hold Dawnhold through the longest night. When the Pale Regent descends, end her.',
     waves: [
       w('The fog is everywhere now.', ['courtier', 3], ['thrall', 12]),
       w('Black iron and bone.', ['dreadguard', 6], ['arbalist', 6], ['hexer', 3]),
@@ -238,7 +238,7 @@ export const UPGRADES = {
   walls: { name: 'Walls', desc: '+20% castle durability per rank.', costs: [200, 350, 550, 800, 1100] },
   towers: { name: 'Arrow Towers', desc: 'Towers shoot faster and harder. Rank 3: fire arrows. Rank 5: ballistae.', costs: [180, 320, 500, 750, 1000] },
   lantern: { name: 'Lantern Shrine', desc: '+15% coin income in battle per rank.', costs: [200, 360, 560, 820, 1150] },
-  horn: { name: 'War Horn', desc: '+8 war chest size and +2 starting coin per rank.', costs: [150, 300, 480, 700, 950] },
+  horn: { name: 'War Horn', desc: '+6 war chest size and +2 starting coin per rank.', costs: [150, 300, 480, 700, 950] },
   barracks: { name: 'Barracks', desc: '+4 army size per rank.', costs: [220, 380, 600, 860, 1200] },
   armory: { name: 'Armory', desc: 'Hero weapon: +12% damage per rank.', costs: [200, 380, 600, 900, 1300] },
   plate: { name: 'Plate', desc: 'Hero armor: +12% health and +1 armor per rank.', costs: [200, 380, 600, 900, 1300] },

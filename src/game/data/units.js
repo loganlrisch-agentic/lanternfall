@@ -84,7 +84,7 @@ export const ABILITIES = {
 const A = (o) => ({ count: 1, pop: 1, limit: 99, armor: 0, range: 2.0, rate: 1.2, speed: 4.2, radius: 0.6, scale: 0.85, ...o });
 export const ALLIES = [
   // Dawnhold garrison
-  A({ id: 'militia', name: 'Levy Militia', faction: 'Dawnhold', model: ['Farmer_A', 'Farmer_B'], weapons: [{ id: 'pitchfork', hand: 'r' }], anim: 'spear', hp: 70, dmg: 8, rate: 1.2, speed: 4.1, cost: 2, cd: 4, count: 2, unlock: 0,
+  A({ id: 'militia', name: 'Levy Militia', faction: 'Dawnhold', model: ['Farmer_A', 'Farmer_B'], weapons: [{ id: 'pitchfork', hand: 'r' }], anim: 'spear', hp: 70, dmg: 8, rate: 1.2, speed: 4.1, cost: 4, cd: 4, count: 2, unlock: 0,
     desc: 'Two farmhands with pitchforks.', lore: 'They came to the walls because their villages are gone. Most will not go home.' }),
   A({ id: 'footman', name: 'Dawnguard', faction: 'Dawnhold', model: 'Knight', opts: { hide: ['Cape'] }, weapons: [{ id: 'sword_1handed', hand: 'r' }, { id: 'shield_round_color', hand: 'l' }], anim: 'sword', hp: 165, armor: 4, dmg: 13, cost: 4, cd: 5, unlock: 0,
     desc: 'Sworn spearwall of Dawnhold. Dependable in any fight.', lore: 'Every Dawnguard swears the same oath: the Lantern burns while I stand.' }),
@@ -159,7 +159,66 @@ export const ALLIES = [
     special: { lifesteal: 0.3 }, desc: 'Drinks 30% of the damage it deals as health.', lore: 'Born of a bargain. Fights for whoever is losing; it likes the odds.' }),
   A({ id: 'aldous', name: 'Sir Aldous, Redeemed', faction: 'Wanderers', model: 'BlackKnight', weapons: [{ id: 'BlackKnight_Sword_Large', hand: 'r' }, { id: 'BlackKnight_Shield_Large', hand: 'l' }], anim: 'largeShield', hp: 1700, armor: 12, dmg: 60, range: 3.6, rate: 1.8, speed: 4.0, radius: 1.4, pop: 4, cost: 16, cd: 45, limit: 1, aoe: 2.5, scale: 0.8, unlock: 'redeemAldous',
     desc: 'A fallen champion who now fights for the light. Only one.', lore: 'He came back from the fog. Not all of him did.' }),
+
+  // ---------------- the second muster: more who answered the bells ----------------
+  // Dawnhold
+  A({ id: 'crossbowlevy', name: 'Watch Crossbows', faction: 'Dawnhold', model: ['Farmer_A', 'Farmer_B'], weapons: [{ id: 'crossbow_1handed', hand: 'r' }], anim: 'crossbow', hp: 60, dmg: 9, range: 18, rate: 2.0, cost: 5, cd: 5, count: 2, projectile: 'bolt', unlock: 0,
+    desc: 'Two townsfolk with crossbows. Cheap, fragile, and better than nothing.', lore: 'The cooper, the miller\'s boy. They practised on rats in the granary all summer.' }),
+  A({ id: 'halberdier', name: 'Gate Halberdier', faction: 'Dawnhold', model: 'Knight', opts: { hide: ['Cape'], tint: '#9aa0b4', tintMix: 0.35 }, weapons: [{ id: 'spear_blue_full', hand: 'r', scale: 4.4 }], anim: 'spear', hp: 190, armor: 6, dmg: 15, range: 3.1, aoe: 1.8, cost: 5, cd: 6, unlock: 0,
+    desc: 'Long reach and wide swings: every blow hits everything in front of it.', lore: 'They hold the gate. When the gate falls, they become the gate.' }),
+  A({ id: 'lanternbearer', name: 'Lanternbearer', faction: 'Lantern Order', model: 'Paladin', opts: { tint: '#e8c890', tintMix: 0.35 }, weapons: [{ id: 'staff', hand: 'r' }, { id: 'paladin_book', hand: 'l' }], anim: 'support', hp: 150, armor: 4, dmg: 8, cost: 6, cd: 10, limit: 2, unlock: 0,
+    special: { regrowth: { heal: 10, radius: 8, dur: 5, every: 12 }, vsUndead: 1.4 },
+    desc: 'Every 12s lays down a pool of warm light that heals allies standing in it. Max 2.', lore: 'Each carries a coal from Saint Ysolde\'s fire. They are not allowed to let it go out.' }),
+  A({ id: 'gravewarden', name: 'Gravewarden', faction: 'Lantern Order', model: 'Knight', opts: { hide: ['Cape'], tint: '#4a4650', tintMix: 0.6 }, weapons: [{ id: 'sword_2handed', hand: 'r' }], anim: 'twohand', hp: 240, armor: 5, dmg: 24, rate: 1.4, aoe: 1.6, cost: 7, cd: 8, unlock: 1,
+    special: { vsUndead: 1.8 }, desc: 'Greatsword sweeps. Deals 80% more damage to the undead.', lore: 'They keep the crypts. They know which graves are restless, and how to quiet them.' }),
+  A({ id: 'bellringer', name: 'Bell-Ringer', faction: 'Lantern Order', model: 'Lorekeeper', opts: { tint: '#8a7a6a', tintMix: 0.4 }, weapons: [{ id: 'Lorekeeper_Tome', hand: 'l' }], anim: 'magic', hp: 120, armor: 2, dmg: 8, range: 14, rate: 2.0, projectile: 'holy', cost: 7, cd: 12, limit: 2, unlock: 1,
+    special: { warcry: { every: 20 } }, desc: 'Every 20s rings the vigil: allies nearby deal 30% more damage and move faster for 8s. Max 2.', lore: 'The bells of Dawnhold have rung every night for four hundred years. Tonight they ring for you.' }),
+  A({ id: 'revenant', name: 'Oath-Bound Dead', faction: 'The Unquiet', model: 'Skeleton_Warrior', opts: { tint: '#d8c890', tintMix: 0.35 }, weapons: [{ id: 'Skeleton_Blade', hand: 'r' }, { id: 'Skeleton_Shield_Small_A', hand: 'l' }], anim: 'skelShield', hp: 110, armor: 4, dmg: 11, cost: 6, cd: 6, count: 2, undead: true, unlock: 1,
+    desc: 'Two redeemed dead with sword and shield. Cheap and sturdy.', lore: 'Some of the dead swore to the Lantern before they fell. The oath outlived them.' }),
+  A({ id: 'boneshot', name: 'Oath-Bound Archer', faction: 'The Unquiet', model: 'Skeleton_Rogue', opts: { tint: '#d8c890', tintMix: 0.35 }, weapons: [{ id: 'Skeleton_Crossbow', hand: 'r' }], anim: 'skelBow', hp: 70, armor: 1, dmg: 14, range: 22, rate: 1.9, projectile: 'bolt', pierceArmor: 0.5, cost: 5, cd: 6, undead: true, unlock: 1,
+    desc: 'Dead-eye crossbow. Bolts ignore half of the target\'s armor.', lore: 'Its hands remember the string. Its eyes are only embers now, but they do not miss.' }),
+  // Thornwood
+  A({ id: 'briarshaman', name: 'Briar Shaman', faction: 'Thornwood', model: 'Druid', opts: { tint: '#3a5a3a', tintMix: 0.5 }, weapons: [{ id: 'druid_staff', hand: 'r' }], anim: 'magic', hp: 105, armor: 1, dmg: 10, range: 16, rate: 1.9, projectile: 'thorn', cost: 7, cd: 10, unlock: 1,
+    special: { entangle: { radius: 4.5, dur: 2.5, every: 9 } }, desc: 'Every 9s roots a pack of enemies in place for 2.5s.', lore: 'The briars answer her. She has not told anyone what she promised them.' }),
+  A({ id: 'skyshot', name: 'Corvid Skyshot', faction: 'Thornwood', model: 'AvianSwordsman', opts: { tint: '#3a3440', tintMix: 0.35 }, weapons: [{ id: 'bow_withString', hand: 'l', rot: [0, 0, Math.PI], bow: true }], anim: 'bow', hp: 80, armor: 1, dmg: 14, range: 26, rate: 1.7, speed: 5.5, crit: 0.3, projectile: 'arrow', cost: 6, cd: 7, unlock: 2,
+    desc: 'Longest-ranged bow, with a 30% chance to land a critical shot.', lore: 'The crow-folk see the fog from above. They say it has a shape, if you are high enough.' }),
+  A({ id: 'packmother', name: 'Packmother', faction: 'Thornwood', model: 'Werewolf_Wolf', opts: { tint: '#8a8a96', tintMix: 0.4 }, anim: 'beast', hp: 300, armor: 3, dmg: 22, speed: 5.4, pop: 2, cost: 11, cd: 16, limit: 2, scale: 1.1, unlock: 2,
+    special: { summon: { type: 'wolfkin', count: 2, every: 22 } }, desc: 'A great she-wolf. Every 22s howls up two Wolfkin that fight for 30s. Max 2.', lore: 'Her pack runs with whoever keeps the fire lit. Tonight, that is you.' }),
+  A({ id: 'rimewitch', name: 'Rime Witch', faction: 'Thornwood', model: 'Witch', opts: { hide: ['Glasses'], tint: '#a8d8ff', tintMix: 0.5 }, weapons: [{ id: 'wand', hand: 'r' }], anim: 'magic', hp: 95, armor: 1, dmg: 12, range: 16, rate: 1.8, projectile: 'frost', cost: 7, cd: 10, unlock: 2,
+    desc: 'Frost bolts that chill: struck enemies move and attack slower.', lore: 'She was born the winter the river froze with the drowned still in it.' }),
+  A({ id: 'stormcaller', name: 'Stormcaller', faction: 'Lantern Order', model: 'Mage', opts: { tint: '#6a8aff', tintMix: 0.45 }, weapons: [{ id: 'staff', hand: 'r' }], anim: 'magic', hp: 90, armor: 1, dmg: 18, range: 20, rate: 2.4, projectile: 'storm', aoe: 2.4, cost: 8, cd: 10, unlock: 2,
+    desc: 'Calls lightning down on groups of enemies from long range.', lore: 'The storm is the only thing the fog is afraid of. She keeps one in a jar.' }),
+  A({ id: 'bloodknight', name: 'Blood Knight', faction: 'Wanderers', model: 'Vampire', opts: { tint: '#6a1a24', tintMix: 0.3 }, weapons: [{ id: 'Vampire_Sword', hand: 'r' }], anim: 'sword', hp: 260, armor: 4, dmg: 26, speed: 4.8, cost: 9, cd: 10, unlock: 2,
+    special: { lifesteal: 0.35 }, desc: 'Heals for 35% of the damage it deals. Hard to wear down.', lore: 'Lady Vesper\'s knights hate the Regent more than they hate the living. For now, that is enough.' }),
+  // Highforge
+  A({ id: 'clockrifle', name: 'Clockwork Rifleman', faction: 'Highforge', model: 'ToySoldier', opts: { tint: '#b88a5a', tintMix: 0.25 }, weapons: [{ id: 'ToySoldier_Rifle', hand: 'r' }], anim: 'crossbow', hp: 120, armor: 4, dmg: 24, range: 26, rate: 2.6, projectile: 'shot', pierce: 1, cost: 7, cd: 9, unlock: 3,
+    special: { immune: true }, desc: 'A rifle shot that pierces one enemy. Cannot be stunned, rooted or slowed.', lore: 'Wound with a key each dawn. If there is no dawn, it runs for three more days.' }),
+  A({ id: 'brasscolossus', name: 'Brass Colossus', faction: 'Highforge', model: 'Skeleton_Golem', opts: { tint: '#c89a5a', tintMix: 0.55 }, weapons: [{ id: 'Skeleton_Golem_Axe_Large', hand: 'r' }], anim: 'large', hp: 1300, armor: 11, dmg: 48, range: 3.7, rate: 2.4, speed: 3.0, radius: 1.5, pop: 4, cost: 15, cd: 28, limit: 1, aoe: 3.2, scale: 0.95, unlock: 3,
+    special: { immune: true, deathBlast: 120 }, desc: 'A walking engine of war. Huge axe sweeps, and it explodes when destroyed. Only one.', lore: 'The forge-masters built it to guard a door. They never said what was behind the door.' }),
+  A({ id: 'runepriest', name: 'Rune-Priest', faction: 'Highforge', model: 'Engineer', opts: { tint: '#9a7a5a', tintMix: 0.3 }, weapons: [{ id: 'paladin_hammer', hand: 'r' }], anim: 'sword', hp: 170, armor: 5, dmg: 14, cost: 7, cd: 10, limit: 2, unlock: 3,
+    special: { aura: { armor: 4, radius: 10 } }, desc: 'Allies near him gain +4 armor. Max 2.', lore: 'He carves the old forge-runes into every shield on the wall, and some of them still work.' }),
+  A({ id: 'witchhunter', name: 'Witch-Hunter', faction: 'Wanderers', model: 'Rogue_Hooded', opts: { tint: '#5a2a2a', tintMix: 0.4 }, weapons: [{ id: 'crossbow_1handed', hand: 'r' }], anim: 'crossbow', hp: 110, armor: 2, dmg: 17, range: 20, rate: 1.7, projectile: 'bolt', cost: 6, cd: 8, unlock: 3,
+    special: { hunter: true }, desc: 'Always targets enemy archers and casters first.', lore: 'She has burned eleven witches. She is still looking for the one who burned her village.' }),
+  A({ id: 'kage', name: 'Shadow Thrower', faction: 'Wanderers', model: 'Ninja', opts: { tint: '#2a2a34', tintMix: 0.5 }, weapons: [{ id: 'Ninja_Shuriken', hand: 'r' }], anim: 'thrower', hp: 90, armor: 1, dmg: 9, range: 15, rate: 0.95, speed: 6.2, crit: 0.25, projectile: 'shuriken', cost: 5, cd: 7, unlock: 3,
+    desc: 'Throws a fast stream of steel stars, with a 25% chance to crit.', lore: 'Came over the mountains with no name and a bag of stars. Takes payment in silence.' }),
+  A({ id: 'stitched', name: 'Stitched Horror', faction: 'The Unquiet', model: 'Monstrosity', opts: { tint: '#7a8a6a', tintMix: 0.3 }, weapons: [{ id: 'Monstrosity_Pitchfork_Large', hand: 'r' }, { id: 'Monstrosity_BarndoorShield_Large', hand: 'l' }], anim: 'largeShield', hp: 1100, armor: 7, dmg: 40, range: 3.6, rate: 2.2, speed: 3.4, radius: 1.4, pop: 3, cost: 12, cd: 20, limit: 2, aoe: 2.5, scale: 0.85, unlock: 3,
+    special: { taunt: 11, regen: 10 }, desc: 'A hulking tank that draws enemies to itself and slowly knits back together. Max 2.', lore: 'The surgeon of Greywater sewed it from the ones who would not stay buried. It is very gentle with children.' }),
+  // late arrivals
+  A({ id: 'gravecaller', name: 'Lantern Gravecaller', faction: 'The Unquiet', model: 'Necromancer', opts: { tint: '#6a6a8a', tintMix: 0.35 }, weapons: [{ id: 'Skeleton_Staff', hand: 'r' }], anim: 'magic', hp: 110, armor: 1, dmg: 12, range: 16, rate: 2.0, projectile: 'hex', cost: 9, cd: 12, limit: 2, unlock: 4,
+    special: { raise: { count: 2, every: 18 } }, desc: 'Every 18s raises two of the honored dead to fight for you for 28s. Max 2.', lore: 'Necromancy, the Order says, is only a sin when the dead did not consent.' }),
+  A({ id: 'errant', name: 'Black Knight Errant', faction: 'Wanderers', model: 'BlackKnight', opts: { tint: '#3a3a44', tintMix: 0.3 }, weapons: [{ id: 'BlackKnight_Sword', hand: 'r' }, { id: 'BlackKnight_Shield', hand: 'l' }], anim: 'largeShield', hp: 420, armor: 11, dmg: 24, rate: 1.6, range: 2.8, speed: 3.8, radius: 0.9, pop: 2, scale: 0.62, cost: 10, cd: 12, unlock: 4,
+    special: { charge: { every: 12 } }, desc: 'Heavy armor. Every 12s charges through the enemy line, stunning everything it hits.', lore: 'He wears the colors of a house that no longer exists, and answers to no one.' }),
+  A({ id: 'javelineer', name: 'Maw Javelineer', faction: 'Red Maw', model: 'OrcRaider', opts: { tint: '#6a4a3a', tintMix: 0.3 }, weapons: [{ id: 'Caveman_Spear', hand: 'r' }], anim: 'thrower', hp: 140, armor: 2, dmg: 16, range: 17, rate: 1.8, speed: 5.0, projectile: 'javelin', cost: 5, cd: 7, unlock: 4,
+    special: { bleed: 4 }, desc: 'Hurls heavy javelins that make enemies bleed.', lore: 'The Red Maw throw spears the way other people breathe.' }),
+  A({ id: 'ashmonk', name: 'Ash Monk', faction: 'Lantern Order', model: 'Druid', opts: { tint: '#8a8378', tintMix: 0.6 }, anim: 'beast', hp: 170, armor: 3, dmg: 15, rate: 0.9, speed: 5.6, cost: 6, cd: 7, unlock: 4,
+    special: { leap: 8, regen: 4 }, desc: 'Fast bare-handed fighter that leaps into the fray and slowly heals.', lore: 'They walked through the burning of Greywater on purpose. The ash is how they pray.' }),
+  A({ id: 'avenger', name: 'Saint\'s Avenger', faction: 'Lantern Order', model: 'Paladin_with_Helmet', opts: { tint: '#ffe0a0', tintMix: 0.35 }, weapons: [{ id: 'sword_2handed_color', hand: 'r' }], anim: 'twohand', hp: 420, armor: 9, dmg: 34, rate: 1.5, aoe: 2.0, speed: 4.0, pop: 2, cost: 12, cd: 16, limit: 2, unlock: 5,
+    special: { smite: { dmg: 80, radius: 5, every: 8 }, vsUndead: 1.5 }, desc: 'Greatsword champion. Every 8s calls down holy fire around itself. Max 2.', lore: 'Chosen by the last Lantern. They do not speak. They only kneel, and rise, and burn.' }),
 ];
+
+// raised by the Lantern Gravecaller: fights for a short time, not part of the roster
+export const RISEN = A({ id: 'risen', name: 'Honored Dead', faction: 'The Unquiet', model: 'Skeleton_Minion', opts: { tint: '#c8e0b0', tintMix: 0.35 }, weapons: [{ id: 'Skeleton_Blade', hand: 'r' }], anim: 'skeleton', hp: 70, armor: 1, dmg: 9, cost: 0, cd: 0, undead: true, unlock: 99,
+  desc: 'Raised to fight for a short while.', lore: '' });
 
 // ---------------- enemies ----------------
 const E = (o) => ({ armor: 0, range: 2.0, rate: 1.3, speed: 3.6, radius: 0.6, scale: 0.85, xp: 6, gold: 2, ...o });

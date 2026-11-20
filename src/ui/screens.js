@@ -177,8 +177,11 @@ export class Screens {
       el.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('sel', b.dataset.t === tab));
       purse(); loadout();
       if (tab === 'muster') {
+        const ORDER = ['Dawnhold', 'Lantern Order', 'Thornwood', 'Highforge', 'Red Maw', 'The Unquiet', 'Wanderers'];
         const groups = {};
+        for (const f of ORDER) groups[f] = [];
         for (const a of ALLIES) (groups[a.faction] = groups[a.faction] || []).push(a);
+        for (const f of Object.keys(groups)) if (!groups[f].length) delete groups[f];
         const lockText = a => typeof a.unlock === 'number' ? `After Chapter ${ROMAN[a.unlock]}` : ({ spareCursed: 'Spare the cursed', orcs: 'Shelter the Red Maw', redeemAldous: 'Redeem the fallen knight' }[a.unlock] || 'Locked');
         main.innerHTML = `<div class="muster ${selected ? 'has-sel' : ''}"><div class="roster">${Object.entries(groups).map(([f, list]) => `
           <h4>${f}</h4><div class="grid">${list.map(a => {

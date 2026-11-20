@@ -5,7 +5,7 @@ import { Hero } from './hero.js';
 import { Projectiles } from './projectiles.js';
 import { CameraRig } from './camera.js';
 import { Army } from './army.js';
-import { ALLIES, ENEMIES, allyById } from './data/units.js';
+import { ALLIES, ENEMIES, allyById, RISEN } from './data/units.js';
 import { BARKS } from './data/campaign.js';
 import { MAP, roadZ, TEAM } from './config.js';
 import { SpatialHash, clamp, rand, pick, dist2 } from '../core/util.js';
@@ -41,6 +41,18 @@ class Castle {
   }
 }
 
+// A chapter is a night to survive. The chapter's waves, plus reinforcement waves
+// woven in (copies of earlier waves, half again as strong), so the defense lasts.
+const REINFORCE_MSG = ['The fog thickens. They are not done with you.', 'More of them. Hold the line.', 'The dead keep coming. Steady.'];
+function nightWaves(chapter) {
+  const src = chapter.waves, out = [];
+  src.forEach((w, i) => {
+    out.push(w);
+    if (i === 1 || i === 3) out.push({ msg: REINFORCE_MSG[out.length % REINFORCE_MSG.length], spawn: w.spawn.map(([t, n]) => [t, Math.ceil(n * 1.5)]) });
+  });
+  return out;
+}
+
 class Rift {
   constructor(B, hp) {
     this.B = B; this.isStructure = true; this.team = TEAM.ENEMY; this.alive = true; this.radius = 4.5;
@@ -53,7 +65,7 @@ class Rift {
   takeDamage(a, src) {
     if (!this.alive) return 0;
     if (this.invulnerable) {
-      if (src && src.isHero && Math.random() < 0.3) this.B.hud.toast('The rift is shielded. Break the last wave first.', 1.5);
+      if (src && src.isHero && Math.random() < 0.3) this.B.hud.toast('Nothing harms the rift. Hold the fort; its master will come to you.', 1.8);
       return 0;
     }
     this.hp -= a;
@@ -89,9 +101,12 @@ export class Battle {
     this.rift = new Rift(this, Math.round(chapter.fortressHP * this.diff.enemyHp));
     this.towerRank = up.towers || 0;
     // the war chest: coin trickles in, kills pay a bounty, support costs coin
-    this.coinMax = 30 + 8 * (up.horn || 0);
-    this.coins = 12 + 2 * (up.horn || 0);
-    this.coinBase = 0.85 * (1 + 0.15 * (up.lantern || 0)) * this.diff.cp;
+    // tuned so a full army is something you build toward and lose, not a given:
+    // roughly a third of the old income, with kills and shrines topping it up
+    this.coinMax = 24 + 6 * (up.horn || 0);
+    this.coins = 10 + 2 * (up.horn || 0);
+    // grows a little each chapter, alongside the enemy's strength
+    this.coinBase = 0.16 * (1 + 0.16 * (chapter.n - 1)) * (1 + 0.15 * (up.lantern || 0)) * this.diff.cp;
     this.popCap = 22 + 4 * (up.barracks || 0);
     this.relicBonus = this.flags.restAldous ? 1.15 : 1;
     this.enemyRim = { dawnhold: '#8a5cff', thornwood: '#5aff9a', highforge: '#7ad8ff', redmaw: '#ff6a3a', drowned: '#5affd0', citadel: '#ff3a5a' }[chapter.biome] || '#8a5cff';
@@ -106,13 +121,14 @@ export class Battle {
     this.cam.snapTo(this.hero.pos);
     this.buildMarkers();
     this._ears = new THREE.Vector3();
+    this.waves = nightWaves(chapter);
     this.waveIdx = -1;
     this.waveTimer = 16;
     this.waveSize = 0;
     this.spawnQueue = [];
     this.bossSpawned = false;
     this.boss = null;
-    this.frontLine = -38;
+    this.frontLine = MAP.castleX + 22;   // where free-roaming allies gather: the field before the gate
     this.stats = { kills: 0, gold: 0, lost: 0, summoned: 0, time: 0, xp: 0 };
     this.state = 'intro';
     this.respawnT = 0;
@@ -189,7 +205,9 @@ export class Battle {
       const share = killer && (killer.isHero || killer.pos.distanceTo(this.hero.pos) < 26);
       if (share) this.hero.gainXp && this.hero.gainXp(u.xp);
       this.stats.xp += u.xp;
-      if (this.state === 'fight') this.coins = Math.min(this.coinMax, this.coins + (u.isBoss ? 12 : u.isLarge ? 2.5 : 0.6));
+      if (u === this.bossUnit && this.state === 'fight') { this.hud.banner('DAWN', 'The rift collapses behind its master.', 3); this.after(1.2, () => this.victory()); }
+      // bounty follows how dangerous the kill was (a thrall pays little, an abomination a lot)
+      if (this.state === 'fight') this.coins = Math.min(this.coinMax, this.coins + (u.isBoss ? 5 : Math.min(2, (u.def.gold || 2) * 0.06)));
       const undead = u.def.undead;
       this.fx.burst(u.pos.clone().setY(u.pos.y + 1), { count: u.isLarge ? 34 : 14, color: undead ? 0x1a1420 : 0x2a1010, normal: true, size: u.isLarge ? 2.4 : 1.4, speed: 1.6, spread: 1, up: 1.2, gravity: -0.6, life: 1.6, grow: 1.2, alpha: 0.75 });
       this.fx.burst(u.pos.clone().setY(u.pos.y + 1.2), { count: 8, color: new THREE.Color(this.enemyRim).getHex(), speed: 2.5, up: 2, gravity: -1, life: 0.9, size: 0.4 });
@@ -210,6 +228,7 @@ export class Battle {
       this.hud.toast('You have fallen. Returning to the keep...', 3);
     } else {
       this.stats.lost++;
+      if (this.game.testMode && killer && killer.def) { const d = window.__deaths || (window.__deaths = {}); d[killer.def.name] = (d[killer.def.name] || 0) + 1; }
       this.sfx(u.def.anim === 'siege' ? 'boom' : 'manDeath', u.pos, 0.4);
     }
   }
@@ -380,8 +399,9 @@ export class Battle {
     this.fx.ring(caster.pos, { color: 0x8a5cff, radius: 5, life: 0.9 });
     for (let i = 0; i < count; i++) {
       const a = rand(0, 6.28), r = rand(2, 5);
-      const e = this.spawnEnemy('thrall', caster.pos.x + Math.cos(a) * r, caster.pos.z + Math.sin(a) * r, true);
-      if (e) e.gold = 0;
+      const x = caster.pos.x + Math.cos(a) * r, z = caster.pos.z + Math.sin(a) * r;
+      if (caster.team === TEAM.PLAYER) this.spawnAllyMinion(RISEN, x, z, 28, caster.level);
+      else { const e = this.spawnEnemy('thrall', x, z, true); if (e) e.gold = 0; }
     }
     this.sfx('rise', caster.pos, 0.8);
   }
@@ -390,7 +410,9 @@ export class Battle {
     if (caster.animator) caster.animator.play(caster.anims.cast || 'Ranged_Magic_Spellcasting', { ts: 1.2 });
     for (let i = 0; i < count; i++) {
       const a = rand(0, 6.28), r = rand(3, 6);
-      this.spawnEnemy(type, caster.pos.x + Math.cos(a) * r, caster.pos.z + Math.sin(a) * r, true);
+      const x = caster.pos.x + Math.cos(a) * r, z = caster.pos.z + Math.sin(a) * r;
+      if (caster.team === TEAM.PLAYER) { const d = allyById(type); if (d) this.spawnAllyMinion(d, x, z, 30, caster.level); }
+      else this.spawnEnemy(type, x, z, true);
     }
     this.fx.ring(caster.pos, { color: new THREE.Color(this.enemyRim).getHex(), radius: 7, life: 1 });
     this.sfx('shriek', caster.pos, 0.7);
@@ -408,6 +430,17 @@ export class Battle {
       this.fx.flash(caster.pos, new THREE.Color(this.enemyRim).getHex(), 80, radius * 3, 0.6);
       this.shake(0.5, caster.pos); this.sfx('boom', caster.pos, 0.7);
     });
+  }
+
+  // a temporary ally (raised dead, summoned beasts): fights freely, not part of the formation or the army count
+  spawnAllyMinion(def, x, z, lifetime, level = 1) {
+    const u = new Unit(this, def, TEAM.PLAYER, { level });
+    u.place(clamp(x, MAP.castleX + 4, MAP.xMax - 4), clamp(z, -MAP.playZ, MAP.playZ), Math.PI / 2);
+    u.lifetime = lifetime;
+    if (u.animator) { const dur = u.animator.play('Spawn_Ground', { ts: 1.6 }); u.state = 'spawn'; u.stateT = dur * 0.6; }
+    this.units.push(u);
+    this.fx.burst(u.pos.clone().setY(u.pos.y + 0.4), { count: 10, color: 0xa8e0c0, speed: 2, up: 1.5, life: 0.8, size: 0.4 });
+    return u;
   }
 
   warcry(u) {
@@ -463,7 +496,9 @@ export class Battle {
   spawnEnemy(type, x, z, rising = false) {
     const def = ENEMIES[type];
     if (!def) return null;
-    const u = new Unit(this, def, TEAM.ENEMY, { mul: this.enemyMul });
+    // bosses come to the walls now, so they carry a little over half the health they had when you stormed their rifts
+    const mul = def.boss ? { hp: this.enemyMul.hp * 0.55, dmg: this.enemyMul.dmg } : this.enemyMul;
+    const u = new Unit(this, def, TEAM.ENEMY, { mul });
     u.place(clamp(x, MAP.castleX + 8, 96), clamp(z, -30, 30), -Math.PI / 2);
     this.units.push(u);
     const isSkel = def.anim && def.anim.startsWith('skel');
@@ -481,9 +516,9 @@ export class Battle {
   }
 
   startWave(i) {
-    const w = this.chapter.waves[i];
+    const w = this.waves[i];
     this.waveIdx = i;
-    this.hud.banner(`WAVE ${i + 1} / ${this.chapter.waves.length}`, w.msg, 3);
+    this.hud.banner(`WAVE ${i + 1} / ${this.waves.length}`, w.msg, 3);
     this.sfx('warhorn', this.level.enemySpawn, 1);
     this.after(0.6, () => this.sfx('bell', null, 0.6));
     this.world.fog.surge(1);
@@ -510,7 +545,7 @@ export class Battle {
         this.spawnEnemy(s.type, x, z);
       }
     }
-    const waves = this.chapter.waves;
+    const waves = this.waves;
     const alive = this.enemyCount;
     this.waveTimer -= dt;
     this.waveAge = (this.waveAge || 0) + dt;
@@ -520,21 +555,20 @@ export class Battle {
       if (cleared && this.waveAge > 20 && this.waveTimer > 9) { this.waveTimer = 9; this.hud.toast('The fog stirs again. Regroup.', 2.5); }
       if (this.waveTimer <= 0) this.startWave(this.waveIdx + 1);
     } else if (!this.bossSpawned && this.spawnQueue.length === 0 && (alive <= 3 || this.waveTimer <= 0)) {
+      // the night's master comes for the fort; its death closes the rift
       this.bossSpawned = true;
-      this.rift.invulnerable = false;
-      this.level.setShield(false);
       const b = this.chapter.boss;
       this.hud.banner(ENEMIES[b.type].name.toUpperCase(), b.msg, 4);
-      this.hud.objective(`Destroy ${this.chapter.rift}.`);
+      this.hud.objective(`${ENEMIES[b.type].name} is coming for the walls. Kill it and the rift dies with it.`);
       audio.setMood('boss', this.chapter.biome);
       this.sfx('warhorn', this.level.enemySpawn, 1);
-      this.after(1.2, () => { this.spawnEnemy(b.type, this.level.enemySpawn.x - 4, 0, true); this.sfx('shriek', this.level.enemySpawn, 1); this.world.fog.surge(1.2); });
+      this.after(1.2, () => { this.bossUnit = this.spawnEnemy(b.type, this.level.enemySpawn.x - 4, 0, true); this.sfx('shriek', this.level.enemySpawn, 1); this.world.fog.surge(1.2); });
       this.world.lightning.strike();
     } else if (this.bossSpawned) {
       this.trickleT -= dt;
       if (this.trickleT <= 0) {
         this.trickleT = 14;
-        const pool = this.chapter.waves[this.chapter.waves.length - 1].spawn.map(s => s[0]).filter(t => !ENEMIES[t].boss && !ENEMIES[t].large);
+        const pool = this.waves[this.waves.length - 1].spawn.map(s => s[0]).filter(t => !ENEMIES[t].boss && !ENEMIES[t].large);
         for (let k = 0; k < 3 + Math.floor(this.chapter.n / 2); k++) this.spawnQueue.push({ type: pick(pool), t: k * 0.6 });
       }
     }
@@ -550,6 +584,7 @@ export class Battle {
     const alive = this.units.filter(u => u.alive && u.def === d).length;
     if (alive >= d.limit) { this.hud.toast(`Only ${d.limit} ${d.name} at a time.`, 1.4); return false; }
     this.coins -= d.cost;
+    if (this.popStats) this.popStats.spent += d.cost;
     c.cd = d.cd;
     const lvl = (this.save.unitLevels || {})[d.id] || 1;
     const sp = this.level.allySpawn;
@@ -570,7 +605,7 @@ export class Battle {
   // ---------------- economy, auras, shrines, towers ----------------
   updateBuffs() {
     for (const u of this.units) {
-      u.buffs.dmg = 0; u.buffs.atk = 0; u.buffs.spd = 0;
+      u.buffs.dmg = 0; u.buffs.atk = 0; u.buffs.spd = 0; u.buffs.armor = 0;
       if (u.rallyBuff) { u.buffs.dmg += u.rallyBuff.dmg; u.buffs.spd += u.rallyBuff.spd; }
       if (u.rageBuff) u.buffs.atk += 0.5;
     }
@@ -582,6 +617,7 @@ export class Battle {
         u.buffs.dmg = Math.max(u.buffs.dmg, (u.rallyBuff?.dmg || 0) + (au.dmg || 0));
         if (au.atk) u.buffs.atk = Math.max(u.buffs.atk, au.atk + (u.rageBuff ? 0.5 : 0));
         if (au.spd) u.buffs.spd = Math.max(u.buffs.spd, au.spd);
+        if (au.armor) u.buffs.armor = Math.max(u.buffs.armor, au.armor);
       }
     }
   }
@@ -607,7 +643,6 @@ export class Battle {
       if (s.owner === 0) { owned++; far = Math.max(far, s.pos.x + 8); }
     }
     this.shrinesOwned = owned;
-    this.frontLine = far;
   }
 
   updateTowers(dt) {
@@ -704,6 +739,14 @@ export class Battle {
     this.game.R.canvas.style.cursor = fight ? (hv ? 'crosshair' : 'pointer') : '';
   }
 
+  // how far through the night we are, 0..1 (the boss is the last step)
+  get nightProgress() {
+    const n = this.waves.length + 1;
+    let done = Math.max(0, this.waveIdx);
+    if (this.bossSpawned) done = this.waves.length + (this.bossUnit && !this.bossUnit.alive ? 1 : 0.5);
+    return Math.min(1, done / n);
+  }
+
   get enemyCount() { let n = 0; for (const u of this.units) if (u.team === TEAM.ENEMY && u.alive) n++; return n; }
 
   // ---------------- state changes ----------------
@@ -779,12 +822,17 @@ export class Battle {
       if (u.rallyBuff) { u.rallyBuff.t -= dt; if (u.rallyBuff.t <= 0) u.rallyBuff = null; }
     }
     this.pop = pop;
+    // how full the army stays (shown in tests; tunes the economy)
+    if (this.state === 'fight') {
+      const ps = this.popStats || (this.popStats = { t: 0, fill: 0, full: 0, spent: 0 });
+      ps.t += dt; ps.fill += Math.min(1, pop / this.popCap) * dt; if (pop + 1 > this.popCap) ps.full += dt;
+    }
     this.updateBuffs();
     if (this.state === 'fight') {
       // economy
       let banner = 0;
       for (const u of this.units) if (u.alive && u.def.special?.cp) banner += u.def.special.cp;
-      this.coinRate = this.coinBase + Math.min(0.9, banner) + (this.shrinesOwned || 0) * 0.4;
+      this.coinRate = this.coinBase + Math.min(0.12, banner * 0.2) + (this.shrinesOwned || 0) * 0.075;
       this.coins = Math.min(this.coinMax, this.coins + this.coinRate * dt);
       for (const c of this.cards) c.cd = Math.max(0, c.cd - dt);
       if (inp) {

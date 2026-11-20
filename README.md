@@ -2,7 +2,7 @@
 
 *When the last light dies, the fog comes for you.*
 
-A dark-fantasy castle-defense action game that runs in the browser. You are the commander: you lead from the field outside your fortress and spend coin from your war chest to call soldiers out of the gate, who march and fight in formation. The Hollow walk out of the fog in waves. Hold the wall, rekindle the Lantern Shrines, break the last wave, then storm the enemy stronghold before your Lantern goes out.
+A dark-fantasy castle-defense action game that runs in the browser. You are the commander: you lead from the field outside your fortress and spend coin from your war chest to call soldiers out of the gate, who march and fight in formation. Each chapter is a night under siege: the Hollow walk out of the fog in waves and you hold the fort until dawn. Coin is tight, so you rarely field a full army. When the night's master finally comes for your walls, kill it and its rift collapses.
 
 Built with three.js. No game engine, no server: it's a static site.
 
@@ -15,11 +15,11 @@ Built with three.js. No game engine, no server: it's a static site.
 
 ## What's in it
 
-- **Campaign:** 6 chapters with branching choices and two endings. Each chapter has its own map, weather, monsters, boss and enemy stronghold.
+- **Campaign:** 6 chapters with branching choices and two endings. Each chapter is a night to survive, with its own map, weather, monsters and a boss that comes for the walls in the last hour.
 - **4 hero classes:** Oathsworn Knight, Mistwalker, Lanternmage and Wolf of the North. The hero attacks on its own; each class has 4 one-tap spells that find their own targets and can be upgraded with talents.
-- **36 allies to call in** across 5 factions (Dawnhold, Thornwood, Highforge, Red Maw, Wanderers). The roster includes militia, bannermen, clerics, paladins, druids, wolfkin, clockwork sentinels, mountain giants, frost golems, catapults and dwarven bombards. Some are unlocked only by story choices.
+- **59 allies to call in** across 7 factions (Dawnhold, the Lantern Order, Thornwood, Highforge, Red Maw, the Unquiet, Wanderers). The roster includes militia, halberdiers, bell-ringers who rally the line, gravewardens, oath-bound dead, briar shamans who root the enemy, stormcallers, rime witches, packmothers who howl up wolves, clockwork riflemen, a brass colossus, stitched horrors, gravecallers who raise the honored dead, black knights errant, mountain giants, catapults and dwarven bombards. Some are unlocked only by story choices.
 - **21 enemy types and 6 bosses:** the Hollow (skeleton legions, hexers, bonecallers, bone colossi), blighted werewolves, fen witches, maddened orcs, dreadguard, abominations, and the Pale Regent.
-- **Formations:** called-in units take a slot in ranks (shields in front, swords and spears behind, archers and casters further back, healers and siege at the rear). The army marches as a block to rekindle shrines, wheels to face the horde, holds the line when it makes contact and falls back to stay between the enemy and the castle.
+- **Formations:** called-in units take a slot in ranks (shields in front, swords and spears behind, archers and casters further back, healers and siege at the rear). The army holds the field before the gate, steps out to meet attackers, wheels to face them, holds the line when it makes contact and falls back to stay between the enemy and the castle. When the field is quiet it goes out to rekindle nearby shrines.
 - **Siege systems:** a coin war chest, Bannermen, capturable Lantern Shrines, arrow towers, engineers that build turrets, castle upgrades and unit veterancy.
 - **Look and sound:** moonlit height fog that thickens toward the enemy, rolling fog banks, lightning, crows, rim-lit monsters, bloom and ambient occlusion. The score is synthesized live (drones, war drums, choir, funeral bells, war horns).
 

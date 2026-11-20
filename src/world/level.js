@@ -39,7 +39,9 @@ export class Level {
     this.root.name = 'level';
     scene.add(this.root);
     snowUniform.value = this.biome.snowShader || 0;
-    this.shrinePoints = chapter.shrines || [];
+    // shrines stand in the field before the walls (the game is about holding the fort),
+    // spread across the old positions' order and sides
+    this.shrinePoints = (chapter.shrines || []).map(([x, z]) => [Math.round(-50 + (x + 30) / 70 * 22), Math.max(-16, Math.min(16, z))]);
     this.terrain = new Terrain(this.biome, { seed: chapter.seed || 7, quality, shrines: this.shrinePoints });
     this.terrain.scatter(grass);
     this.root.add(this.terrain.group);
