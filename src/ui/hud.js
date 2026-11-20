@@ -36,7 +36,7 @@ export class HUD {
       <canvas class="hud-map" width="260" height="104"></canvas>
       <button class="hud-pause" title="Pause (Esc)" aria-label="Pause">${icon('pause', 22)}</button>
       <div class="hud-bottom">
-        <div class="hud-cp"><div class="cp-orb" title="War chest: coin builds up over time and from kills"><span class="v">0</span><small>COIN</small></div><div class="cp-meta"><span class="rate"></span><span class="pop"></span></div></div>
+        <div class="hud-cp"><div class="cp-orb" title="War chest: coin builds up over time and from kills"><span class="v">0</span><small>COIN</small></div><div class="cp-meta"><span class="rate"></span><span class="pop"></span><span class="shr"></span></div></div>
         <div class="hud-cards"></div>
       </div>
       <div class="hud-abil"></div>
@@ -157,6 +157,8 @@ export class HUD {
     $('.cp-orb', this.el).style.setProperty('--fill', (B.coins / B.coinMax * 100) + '%');
     $('.cp-meta .rate', this.el).textContent = `+${(B.coinRate || 0).toFixed(1)}/s`;
     $('.cp-meta .pop', this.el).textContent = `Army ${B.pop}/${B.popCap}`;
+    const sh = B.shrinesOwned || 0;
+    $('.cp-meta .shr', this.el).textContent = sh ? `${sh} shrine${sh > 1 ? 's' : ''} lit` : '';
     for (const c of B.cards) {
       if (!c.el) continue;
       const can = B.coins >= c.def.cost && c.cd <= 0;

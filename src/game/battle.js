@@ -665,12 +665,25 @@ export class Battle {
       if (newOwner !== s.owner) {
         const prev = s.owner;
         this.level.setShrineOwner(s, newOwner);
-        if (newOwner === 0) { this.hud.toast('A Lantern Shrine is rekindled. Coin flows faster.', 2.2); this.sfx('holy', s.pos, 0.8); this.fx.burst(s.pos.clone().setY(s.pos.y + 3), { count: 30, color: 0xffc870, speed: 3, up: 2, life: 1.2, size: 0.5 }); }
+        if (newOwner === 0) { this.hud.toast('A Lantern Shrine is rekindled: more coin, and its light heals your soldiers.', 2.8); this.sfx('holy', s.pos, 0.8); this.fx.burst(s.pos.clone().setY(s.pos.y + 3), { count: 30, color: 0xffc870, speed: 3, up: 2, life: 1.2, size: 0.5 }); }
         else if (newOwner === 1 && prev === 0) { this.hud.toast('The fog has swallowed a shrine.', 2.2); this.sfx('hex', s.pos, 0.8); }
       }
       s.progress = Math.abs(s.cap);
       s.ringMat.uniforms.uColor.value.set(s.cap >= 0 ? '#ffc870' : '#a04aff');
-      if (s.owner === 0) { owned++; far = Math.max(far, s.pos.x + 8); }
+      if (s.owner === 0) {
+        owned++; far = Math.max(far, s.pos.x + 8);
+        // a lit shrine's light mends your soldiers (and the Warden) standing in it
+        s.healT = (s.healT || 0) - dt;
+        if (s.healT <= 0) {
+          s.healT = 1;
+          for (const u of this.query(s.pos.x, s.pos.z, s.radius * 1.2)) {
+            if (!u.alive || u.team !== TEAM.PLAYER || u.isStructure || !u.maxHp || u.hp >= u.maxHp) continue;
+            u.heal(Math.max(4, u.maxHp * 0.03), true);
+            if (Math.random() < 0.35) this.fx.burst(u.pos.clone().setY(u.pos.y + 1.2), { count: 3, color: 0xffd890, speed: 1, up: 1.6, gravity: -1, life: 0.7, size: 0.28 });
+          }
+          this.fx.burst(s.pos.clone().setY(s.pos.y + 1.5), { count: 6, color: 0xffc870, speed: 1.2, up: 2.4, gravity: -1.2, life: 1.4, size: 0.35 });
+        }
+      }
     }
     this.shrinesOwned = owned;
   }
@@ -793,6 +806,7 @@ export class Battle {
     this.hud.show(true);
     this.hud.objective(this.chapter.objective);
     audio.setMood('battle', this.chapter.biome);
+    if (this.level.shrines.length) this.after(20, () => { if (this.state === 'fight' && !this.shrinesOwned) this.hud.toast('Lantern Shrines: stand in a gold ring to rekindle it. Each lit shrine earns extra coin, and its light heals your soldiers.', 5); });
   }
 
   victory() {
@@ -862,7 +876,7 @@ export class Battle {
       // economy
       let banner = 0;
       for (const u of this.units) if (u.alive && u.def.special?.cp) banner += u.def.special.cp;
-      this.coinRate = this.coinBase + Math.min(0.12, banner * 0.2) + (this.shrinesOwned || 0) * 0.075;
+      this.coinRate = this.coinBase + Math.min(0.12, banner * 0.2) + (this.shrinesOwned || 0) * 0.1;
       this.coins = Math.min(this.coinMax, this.coins + this.coinRate * dt);
       for (const c of this.cards) c.cd = Math.max(0, c.cd - dt);
       if (inp) {
