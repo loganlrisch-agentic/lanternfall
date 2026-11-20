@@ -187,6 +187,7 @@ class Audio {
       case 'coins': this.sample('coins', t, 0.5, out); break;
       case 'page': this.sample(Math.random() < 0.5 ? 'page1' : 'page2', t, 0.4, out); break;
       case 'ui': this.sample('ui_click', t, 0.4, out, 0.8); break;
+      case 'equip': if (!this.sample(Math.random() < 0.5 ? 'draw1' : 'draw2', t, 0.35, out, r(0.9, 1.1))) this.sample('ui_click', t, 0.4, out, 0.7); break;
       case 'hover': this.sample('ui_hover', t, 0.15, out, 0.7); break;
       case 'levelup': this.choir(t, out, [50, 57, 62, 66], 3, 0.06); this.bell(t, out, NOTE(62), 0.25); break;
       case 'unlock': this.bell(t, out, NOTE(57), 0.3); this.choir(t, out, [45, 52, 57], 2.4, 0.05); break;

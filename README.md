@@ -15,10 +15,11 @@ Built with three.js. No game engine, no server: it's a static site.
 
 ## What's in it
 
-- **Campaign:** 6 chapters with branching choices and two endings. Each chapter is a night to survive, with its own map, weather, monsters and a boss that comes for the walls in the last hour.
+- **Arcade:** the main mode. Pick any six troops from the full roster, a Warden, one of the six battlefields and a difficulty, then go straight into a night under siege. You get a score and a rank (S, A, B or C, by how much of your walls are still standing at dawn), and the game keeps your best score for each battlefield and difficulty. "Random six" builds a balanced army for you.
+- **Story campaign:** 6 chapters with branching choices and two endings. Each chapter is a night to survive, with its own map, weather, monsters and a boss that comes for the walls in the last hour.
 - **4 hero classes:** Oathsworn Knight, Mistwalker, Lanternmage and Wolf of the North. The hero attacks on its own; each class has 4 one-tap spells that find their own targets and can be upgraded with talents.
-- **59 allies to call in** across 7 factions (Dawnhold, the Lantern Order, Thornwood, Highforge, Red Maw, the Unquiet, Wanderers). The roster includes militia, halberdiers, bell-ringers who rally the line, gravewardens, oath-bound dead, briar shamans who root the enemy, stormcallers, rime witches, packmothers who howl up wolves, clockwork riflemen, a brass colossus, stitched horrors, gravecallers who raise the honored dead, black knights errant, mountain giants, catapults and dwarven bombards. Some are unlocked only by story choices.
-- **21 enemy types and 6 bosses:** the Hollow (skeleton legions, hexers, bonecallers, bone colossi), blighted werewolves, fen witches, maddened orcs, dreadguard, abominations, and the Pale Regent.
+- **71 allies to call in** across 7 factions (Dawnhold, the Lantern Order, Thornwood, Highforge, Red Maw, the Unquiet, Wanderers). The roster includes militia, halberdiers, bell-ringers who rally the line, gravewardens, oath-bound dead, briar shamans who root the enemy, stormcallers, rime witches, packmothers who howl up wolves, clockwork riflemen, a brass colossus, stitched horrors, gravecallers who raise the honored dead, black knights errant, mountain giants, catapults and dwarven bombards. Newer additions include Pyre Knights whose blades set enemies alight, Templar Maceguards who stun, a Headsman who executes the wounded, Mourning Banshees, a ghostly Spectral Knight, a Cinder Giant, a Fen Hulk and the Lantern Seraph. In the story some are unlocked by story choices; in Arcade all of them are open.
+- **33 enemy types and 6 bosses, each with its own ability.** Barrow Ghouls leap and leave wounds bleeding, Corpse Bloaters burst into poison clouds, Grave Standards make the dead around them stronger, Bone Catapults shell your walls, Hag Matrons heal the horde, Fen Shades turn invisible and step out behind your archers, Spore Mothers split into Briar Thralls, Frost Liches lay killing frost, Gatebreakers ignore your army and walk straight for the gate, Blood Shamans howl the horde into a frenzy, Bell-Wraiths vanish and toll a deadly knell, and a Flesh Colossus bursts into a red cloud and two Gaunts when it dies. The first time a new kind of enemy walks out of the fog, the game tells you what it does.
 - **Formations:** called-in units take a slot in ranks (shields in front, swords and spears behind, archers and casters further back, healers and siege at the rear). The army holds the field before the gate, steps out to meet attackers, wheels to face them, holds the line when it makes contact and falls back to stay between the enemy and the castle. When the field is quiet it goes out to rekindle nearby shrines.
 - **Siege systems:** a coin war chest, Bannermen, capturable Lantern Shrines, arrow towers, engineers that build turrets, castle upgrades and unit veterancy.
 - **Look and sound:** moonlit height fog that thickens toward the enemy, rolling fog banks, lightning, crows, rim-lit monsters, bloom and ambient occlusion. The score is synthesized live (drones, war drums, choir, funeral bells, war horns).
@@ -59,7 +60,7 @@ npm run dev        # http://localhost:8080
 
 ```
 public/            static site: index.html, game.js (built), assets/, fonts/, licenses/
-src/main.js        boot, game loop, campaign flow
+src/main.js        boot, game loop, arcade and campaign flow
 src/core/          renderer + post FX, asset loader, materials (fog/grim shader patch), audio, input
 src/world/         sky, terrain, biomes, level builder, atmosphere (fog banks, crows, lightning), particles
 src/game/          units + AI, hero, battle manager, projectiles, camera, saves, data (units, campaign)

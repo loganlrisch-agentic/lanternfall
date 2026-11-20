@@ -155,10 +155,18 @@ export class Army {
     const shrine = this.nextShrine();
     const threat = lead && lead.pos.x < maxX + 22;     // something is coming within reach of the walls
     const boss = B.bossUnit && B.bossUnit.alive ? B.bossUnit : null;
+    // war machines and gatebreakers can't be left alone: the army goes out after them
+    // unless the horde is already at the walls
+    let breaker = null;
+    if (!boss) for (const u of B.units) if (u.alive && u.team !== TEAM.PLAYER && u.def && (u.def.special?.gatebreaker || u.anims?.siege) && u.pos.x < maxX + 24 && (!breaker || u.pos.x < breaker.pos.x)) breaker = u;
+    const wallsPressed = lead && lead.pos.x < minX + 12;
     if (boss && boss.pos.x < maxX + 30) {
       // the night's master is here: the whole army goes to meet it
       wantX = clamp(boss.pos.x - 8, minX, maxX + 10); wantZ = boss.pos.z; label = 'boss';
       this.focus = boss;
+    } else if (breaker && !wallsPressed) {
+      wantX = clamp(breaker.pos.x - 7, minX, maxX + 14); wantZ = breaker.pos.z; label = 'siege';
+      this.focus = breaker;
     } else if (threat) {
       // meet the horde before it reaches the walls, and never leave it behind us
       wantX = clamp(lead.pos.x - 9, minX, maxX);
@@ -167,7 +175,7 @@ export class Army {
     } else if (shrine && shrine.pos.x < maxX + 6) {
       wantX = clamp(shrine.pos.x + this.depth * 0.5, minX, maxX + 6); wantZ = shrine.pos.z; label = 'shrine';
     }
-    wantX = clamp(wantX, minX, maxX + 10);
+    wantX = clamp(wantX, minX, maxX + (label === 'siege' ? 14 : 10));
     wantZ = clamp(wantZ, -MAP.playZ + 8, MAP.playZ - 8);
     this.objective = label;
 

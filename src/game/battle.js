@@ -6,7 +6,7 @@ import { Projectiles } from './projectiles.js';
 import { CameraRig } from './camera.js';
 import { Army } from './army.js';
 import { ALLIES, ENEMIES, allyById, RISEN } from './data/units.js';
-import { BARKS } from './data/campaign.js';
+import { BARKS, NEW_FOES } from './data/campaign.js';
 import { MAP, roadZ, TEAM } from './config.js';
 import { SpatialHash, clamp, rand, pick, dist2 } from '../core/util.js';
 import { audio } from '../core/audio.js';
@@ -33,6 +33,7 @@ class Castle {
     if (!this.alive || this.B.state !== 'fight') return 0;
     a *= this.B.castleDmgMul;
     this.hp -= a;
+    if (this.B.game.testMode && src?.def) { const m = (window.__castleDmg ||= {}); const k = src.def.name || '?'; m[k] = Math.round((m[k] || 0) + a); }
     this.hitT = 0.3;
     if (Math.random() < 0.3) this.B.sfx('gate', src ? src.pos : this.pos, 0.6);
     if (src) this.B.fx.burst(this.aimPoint(src.pos).clone().setY(this.pos.y + rand(1, 4)), { count: 4, color: 0x8a8070, normal: true, size: 0.7, speed: 2, life: 0.7, gravity: 4 });
@@ -47,9 +48,29 @@ const REINFORCE_MSG = ['The fog thickens. They are not done with you.', 'More of
 function nightWaves(chapter) {
   const src = chapter.waves, out = [];
   src.forEach((w, i) => {
-    out.push(w);
+    out.push({ msg: w.msg, spawn: w.spawn.map(s => [...s]) });
     if (i === 1 || i === 3) out.push({ msg: REINFORCE_MSG[out.length % REINFORCE_MSG.length], spawn: w.spawn.map(([t, n]) => [t, Math.ceil(n * 1.5)]) });
   });
+  // the night's new horrors join from their first wave on, a few more every third wave
+  const skip = typeof location !== 'undefined' && /[?&]nofoes=1/.test(location.search);   // test hook: compare against the old waves
+  // They take the place of part of the wave rather than piling on top of it: the old ranks thin out
+  // by a bit more than the newcomers' health (their tricks make them worth more), so a night gets
+  // stranger without getting harder overall.
+  const only = typeof location !== 'undefined' && (location.search.match(/[?&]onlyfoes=([^&]+)/) || [])[1]?.split(',');   // test hook
+  for (const [type, count, from] of skip ? [] : (NEW_FOES[chapter.n] || []).filter(f => !only || only.includes(f[0]))) {
+    out.forEach((w, i) => {
+      if (i < from) return;
+      const k = count + ((i - from >= 3 && (ENEMIES[type]?.hp || 0) < 1000) ? 1 : 0);   // one more later on; never more giants
+      w.spawn.push([type, k]);
+      let budget = (ENEMIES[type]?.hp || 100) * k * 1.3;
+      for (let guard = 0; budget > 0 && guard < 200; guard++) {
+        let big = null;
+        for (const s of w.spawn) if (s[0] !== type && s[1] > 1 && !ENEMIES[s[0]]?.boss && !(NEW_FOES[chapter.n] || []).some(f => f[0] === s[0]) && (!big || s[1] > big[1])) big = s;
+        if (!big) break;
+        big[1]--; budget -= ENEMIES[big[0]]?.hp || 60;
+      }
+    });
+  }
   return out;
 }
 
@@ -528,6 +549,13 @@ export class Battle {
       t += 1.5;
     }
     this.waveSize = n;
+    if (this.game.testMode) (window.__timeline ||= []).push({ w: this.waveIdx, t: Math.round(this.stats.time), castle: Math.round(this.castle.hp), army: this.army.units.length, foes: this.units.filter(u => u.alive && u.team !== TEAM.PLAYER && !u.isStructure).length, coins: Math.round(this.coins), hero: Math.round(this.hero.hp) });
+    // introduce each new kind of horror the first time it walks out of the fog
+    this.seenFoes = this.seenFoes || new Set();
+    // (two at most per wave, so the screen doesn't fill with text; the rest get their turn later)
+    const fresh = [...new Set(w.spawn.map(s => s[0]))].filter(t => !this.seenFoes.has(t) && ENEMIES[t]?.special && !ENEMIES[t].boss).slice(0, 2);
+    fresh.forEach(t => this.seenFoes.add(t));
+    fresh.forEach((t, k) => this.after(3.5 + k * 4.5, () => this.state === 'fight' && this.hud.toast(`New in the fog — ${ENEMIES[t].name}: ${ENEMIES[t].desc}`, 4.2)));
     this.waveTimer = 62;
     this.waveAge = 0;
   }

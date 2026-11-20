@@ -129,6 +129,8 @@ export class Unit {
       this.root.add(m);
       this.meshes = [];
       m.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); this.meshes.push(o); } });
+      // enemy war machines: bone-grey and blood instead of the Dawnhold blue
+      if (d.tint) { const c = new THREE.Color(d.tint); for (const o of this.meshes) o.material.color.lerp(c, 0.7); }
       this.animator = null;
     } else {
       const model = Array.isArray(d.model) ? pick(d.model) : d.model;
@@ -191,6 +193,7 @@ export class Unit {
     if (sp.antiLarge && target.isLarge) m *= sp.antiLarge;
     if (sp.vsUndead && target.def && target.def.undead) m *= sp.vsUndead;
     if (sp.rage) m *= 1 + (1 - this.hpPct) * 0.9;
+    if (sp.execute && target.hpPct !== undefined && target.hpPct < 0.35) m *= sp.execute;   // finishes the wounded
     if (this.B.relicBonus && this.isHero) m *= this.B.relicBonus;
     return m;
   }
@@ -237,7 +240,23 @@ export class Unit {
       this.animator.cancelShot(0.05);
       this.animator.play(this.anims.death || 'Death_A', { ts: 1, hold: true, fade: 0.1 });
     }
-    if (this.def.special?.deathBlast) this.B.explode(this.pos, this.def.special.deathBlast, 4, this, 0xffb050);
+    const dsp = this.def.special || {};
+    if (dsp.deathBlast) this.B.explode(this.pos, dsp.deathBlast, 4, this, 0xffb050);
+    // a choking cloud where it fell
+    if (dsp.deathCloud) {
+      const c = dsp.deathCloud;
+      this.B.addField(this.pos.clone(), c.radius, c.dur, { dmg: c.dmg, team: this.team, src: this, color: c.color || 0x8acc3a });
+      this.B.fx.burst(this.pos.clone().setY(this.pos.y + 1), { count: 30, color: c.color || 0x6a9a2a, normal: true, size: 2.2, speed: 1.6, life: c.dur * 0.6, grow: 1.4, alpha: 0.55, gravity: -0.2 });
+      this.B.sfx('hex', this.pos, 0.6);
+    }
+    // bursts into smaller horrors
+    if (dsp.split && this.B.spawnEnemy && this.team === TEAM.ENEMY) {
+      for (let i = 0; i < dsp.split.count; i++) {
+        const a = Math.random() * 6.28;
+        this.B.after(0.25 + i * 0.12, () => this.B.state === 'fight' && this.B.spawnEnemy(dsp.split.type, this.pos.x + Math.cos(a) * 1.5, this.pos.z + Math.sin(a) * 1.5));
+      }
+    }
+    this.setVanished(false);
     this.B.onDeath(this, killer);
   }
 
@@ -293,10 +312,18 @@ export class Unit {
     return p;
   }
 
+  // shades fade out of sight and can't be targeted for a few seconds
+  setVanished(on) {
+    if (!!this.stealth === on) return;
+    this.stealth = on;
+    for (const m of this.meshes || []) { m.material.transparent = on; m.material.opacity = on ? 0.18 : 1; m.material.depthWrite = !on; }
+  }
+
   // ---------------- AI ----------------
   aggroRange() {
     // a boss marches on the walls: it only stops for whatever stands in its way
     if (this.isBoss && this.team === TEAM.ENEMY) return 8;
+    if (this.def.special?.gatebreaker) return 2.5;   // only fights what's directly in its way
     return this.isRanged ? this.range + 5 : (this.isBoss ? 18 : 12);
   }
 
@@ -341,7 +368,7 @@ export class Unit {
     // melee won't chase far from the line
     if (this.target && !this.target.isStructure && !this.isRanged) {
       const tl = Math.hypot(this.target.pos.x - slot.x, this.target.pos.z - slot.z);
-      const hunting = this.target.isBoss || (this.target.target && this.target.target.army === A);
+      const hunting = this.target.isBoss || this.target === A.focus || (this.target.target && this.target.target.army === A);
       if (tl > (hunting ? 24 : this.role === 'front' ? 15 : 17)) this.target = null;
     }
     if (this.retarget <= 0) { this.retarget = 0.22 + Math.random() * 0.16; this.acquireArmy(slot); }
@@ -395,7 +422,9 @@ export class Unit {
       const d = Math.min(Math.hypot(o.pos.x - ox, o.pos.z - oz), Math.hypot(o.pos.x - this.pos.x, o.pos.z - this.pos.z) + 1);
       // break ranks for the boss, or for anyone shooting at the formation from out of reach
       const shooter = o.isRanged && o.target && o.target.army === A;
-      const reach = ranged ? engage : (o.isBoss ? 22 : shooter ? 20 : engage);
+      const breaker = o.def?.special?.gatebreaker || o.anims?.siege;
+      const sieging = o.target === B.castle;                           // anything hitting the walls gets answered
+      const reach = ranged ? engage : (o.isBoss || breaker ? 22 : shooter || sieging ? 20 : engage);
       if (d > reach) continue;
       let score = d;
       if (o.target === this) score -= 3;                               // answer whoever is hitting me
@@ -404,6 +433,8 @@ export class Unit {
       score += (A.targetCount.get(o) || 0) * (ranged ? 0.25 : 1.4);   // melee spread out, archers can stack
       if (ranged && o === A.focus) score -= 2.5;                       // volley fire on the closest threat
       if (o.isBoss) score -= ranged ? 6 : 4;                            // everyone turns on the boss
+      if (breaker) score -= ranged ? 5 : 4;                             // and on whatever is breaking the walls
+      if (sieging) score -= ranged ? 4 : 3;
       if (!ranged && shooter && d > engage) score += 3;                 // but deal with what's close first
       if (sp.hunter && o.isRanged) score -= 10;
       if (o.def?.special?.taunt && d < o.def.special.taunt) score -= 8;
@@ -506,7 +537,7 @@ export class Unit {
     // structures
     if (this.team === TEAM.ENEMY && B.castle) {
       const d = B.castle.distTo(this.pos);
-      const prefer = this.def.vsStructure ? 6 : 0;
+      const prefer = this.def.special?.gatebreaker || this.anims.siege ? 60 : this.def.vsStructure ? 6 : 0;
       if (d < 3 + this.range && (!best || d - prefer < bestScore)) best = B.castle;
     }
     if (this.team === TEAM.PLAYER && B.rift && !B.rift.invulnerable) {
@@ -576,6 +607,8 @@ export class Unit {
     }
     if (sp.chill && t.addStatus) t.addStatus('chill', 2, sp.chill);
     if (sp.bleed && t.addStatus) t.addStatus('bleed', 3, sp.bleed), (t.status.bleed && (t.status.bleed.src = this));
+    if (sp.burnHit && t.addStatus) { t.addStatus('burn', 3, sp.burnHit); if (t.status.burn) t.status.burn.src = this; }
+    if (sp.stunHit && t.addStatus && !t.isBoss && Math.random() < sp.stunHit) t.addStatus('stun', 0.9);
     B.hitSpark(t, this);
   }
 
@@ -608,6 +641,9 @@ export class Unit {
     if (sp.warcry && ready('warcry', sp.warcry.every)) B.warcry(this);
     if (sp.charge && this.target && this.distTo(this.target) > 6 && ready('charge', sp.charge.every)) B.bossCharge(this, this.target);
     if (sp.blink && ready('blink', sp.blink.every)) B.bossBlink(this);
+    if (sp.vanish && ready('vanish', sp.vanish.every)) { this.setVanished(true); this.vanishT = sp.vanish.dur; B.fx.burst(this.pos.clone().setY(this.pos.y + 1), { count: 14, color: 0x15151a, normal: true, size: 1.2, speed: 2, life: 0.8, grow: 1, alpha: 0.7 }); }
+    if (this.vanishT > 0) { this.vanishT -= dt; if (this.vanishT <= 0) this.setVanished(false); }
+    if (sp.shadowstep && ready('shadowstep', sp.shadowstep.every)) B.assassinate(this);
     if (sp.leap) this.specT.leap = (this.specT.leap ?? 0);
   }
 

@@ -299,6 +299,58 @@ body.no-help .hud-help{display:none}
 .sheet-close{display:none;position:absolute;top:8px;right:10px;width:36px;height:36px;background:rgba(0,0,0,.4);border:1px solid var(--line2);color:var(--bone);font-size:16px;line-height:1}
 .detail{position:relative}
 
+/* ---------- arcade ---------- */
+.arcade-screen{background:rgba(5,4,7,.92);justify-content:flex-start;padding:22px 3vw 0}
+.arcade-screen header{width:100%;display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid var(--line);padding-bottom:10px}
+.arcade-screen header h2{font-family:var(--goth);font-weight:600;font-size:40px;margin:2px 0 0;color:#e2d3ae}
+.arc-count{font-family:var(--caps);font-size:12px;letter-spacing:.15em;color:var(--dim);text-transform:uppercase}.arc-count b{color:var(--gold2);font-size:16px}
+.arc-body{width:100%;flex:1;min-height:0;display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:22px;padding-top:6px}
+.arc-setup{overflow:auto;padding-right:6px}
+.arc-setup h4{font-family:var(--caps);font-size:12px;letter-spacing:.25em;color:var(--gold);text-transform:uppercase;margin:10px 0 6px;border-bottom:1px solid var(--line);padding-bottom:4px}
+.arc-heroes{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.arc-hero{background:#0e0c0d;border:1px solid var(--line);padding:6px 3px;color:var(--bone);display:flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer;min-width:0}
+.arc-hero img{width:54px;height:54px;border-radius:50%;object-fit:cover;border:1px solid var(--line2);background:radial-gradient(circle at 50% 35%,#24201c,#080707 70%)}
+.arc-hero b{font-family:var(--caps);font-size:9.5px;letter-spacing:.03em;margin-top:3px;line-height:1.15;text-align:center;font-weight:400}
+.arc-hero small{display:none}
+.arc-hero.sel,.arc-night.sel{border-color:var(--gold);box-shadow:0 0 16px rgba(201,164,92,.2),inset 0 0 24px rgba(201,164,92,.06)}
+.arc-hero.sel img{border-color:var(--gold)}
+.arc-nights{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.arc-night{display:grid;grid-template-columns:22px 1fr;column-gap:6px;text-align:left;background:#0e0c0d;border:1px solid var(--line);padding:5px 7px;color:var(--bone);cursor:pointer;align-items:center;min-width:0}
+.arc-night i{grid-row:1/3;font-style:normal;font-family:var(--goth);font-size:19px;color:var(--gold);text-align:center}
+.arc-night b{font-family:var(--caps);font-size:10.5px;letter-spacing:.04em;font-weight:400;line-height:1.2}
+.arc-night small{font-size:11px;color:var(--dim);font-style:italic;line-height:1.2}
+.arc-diff{display:flex;flex-wrap:wrap}.arc-diff .chip{margin:0 6px 0 0}
+.arc-foes{display:flex;flex-wrap:wrap;gap:4px}
+.arc-foe{width:44px;height:44px;padding:0;border:1px solid var(--line);background:#0e0c0d;cursor:pointer;overflow:hidden}
+.arc-foe img{width:100%;height:100%;object-fit:cover;display:block}
+.arc-foe.boss{border-color:#8a3a3a;box-shadow:0 0 10px rgba(160,40,40,.3)}
+.arc-roster{display:flex;flex-direction:column;min-height:0}
+.arc-filters{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0 8px}.arc-filters .chip{margin:0}
+.arc-roster .grid{overflow:auto;flex:1;min-height:0;align-content:start;padding:2px 6px 8px 2px;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));grid-auto-rows:118px}
+.arc-roster .ucard{aspect-ratio:auto;height:100%}
+.ucard .pick{position:absolute;top:3px;right:4px;background:var(--gold);color:#120e08;font-family:var(--caps);font-size:11px;width:19px;height:19px;border-radius:50%;display:grid;place-items:center;box-shadow:0 0 8px rgba(0,0,0,.8)}
+.arc-dock{width:100%}
+.arc-info{width:100%;min-height:76px;border-top:1px solid var(--line);padding:8px 0;display:flex;gap:12px;align-items:flex-start}
+.arc-info img{width:60px;height:60px;object-fit:cover;border:1px solid var(--line2);flex:none;background:radial-gradient(circle at 50% 35%,#24201c,#080707 70%)}
+.arc-info b{font-family:var(--caps);letter-spacing:.06em;color:#e8dcc0;font-weight:400}
+.arc-info .fac{font-style:italic;color:var(--gold);font-size:13px;margin-left:6px}
+.arc-info .kvs{display:flex;flex-wrap:wrap;gap:3px 12px;font-family:var(--caps);font-size:11px;letter-spacing:.06em;color:var(--dim);margin:3px 0}
+.arc-info .kvs svg{color:var(--gold);vertical-align:-2px}
+.arc-info p{margin:2px 0 0;font-size:14px;color:#c8bfa8;line-height:1.3}
+.arc-info .hint{font-size:14px}
+.arc-info .full{display:block;color:#e8946a;font-size:13px;margin-top:2px}
+.arcade-screen footer{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding:10px 0 calc(14px + env(safe-area-inset-bottom))}
+.arcade-screen footer .btn{min-width:150px;margin:0}
+.arc-score{display:flex;align-items:center;gap:20px;margin:10px 0 4px}
+.arc-score .rank{font-family:var(--goth);font-size:64px;width:92px;height:92px;display:grid;place-items:center;border:2px solid var(--gold);color:var(--gold2);background:radial-gradient(circle,rgba(60,42,20,.6),rgba(10,8,6,.8))}
+.arc-score .rank.r-S{color:#fff0b8;text-shadow:0 0 26px #ffb050;box-shadow:0 0 30px rgba(255,176,80,.35)}
+.arc-score .rank.r-x{color:#6a6260;border-color:#3a3232;font-size:40px}
+.arc-score .num{font-family:var(--caps);font-size:44px;color:#ece0c4;letter-spacing:.05em;line-height:1}
+.arc-score .sub{margin-top:4px;color:var(--dim);font-size:15px}.arc-score .rec{color:#ffcf7a;font-family:var(--caps);letter-spacing:.12em;font-weight:400}
+.arcade-results .eyebrow{margin-bottom:4px}
+.kv.big em{font-style:italic;color:var(--dim);margin-left:6px;font-size:.9em}
+.arc-six{gap:6px;margin-top:8px}.arc-six .slot{width:44px;height:44px;cursor:default}
+
 /* ---------- narrower desktops / tablets ---------- */
 @media (max-width:900px){
   .hud-map{width:180px;height:72px}.hud-bars{width:170px}.hud-portrait{width:58px;height:58px}
@@ -311,6 +363,8 @@ body.no-help .hud-help{display:none}
   .muster.has-sel aside{display:block;position:fixed;left:0;right:0;bottom:0;max-height:80vh;z-index:30;border:none;border-top:1px solid var(--gold);box-shadow:0 -20px 60px rgba(0,0,0,.85);padding:14px 16px calc(16px + env(safe-area-inset-bottom));overflow:auto;background:rgba(14,12,15,.98)}
   .sheet-close{display:block}
   .herotab,.chronicle{grid-template-columns:1fr}
+  .arc-body{grid-template-columns:250px 1fr;gap:14px}
+  .arc-hero img{width:44px;height:44px}
 }
 
 /* ---------- phones held sideways (short screens) ---------- */
@@ -382,6 +436,22 @@ body.no-help .hud-help{display:none}
   .hud-banner{top:20vh}.hud-banner h1{font-size:32px}.hud-banner p{font-size:14px}
   .hud-voice{top:24vh;font-size:14px}
   .hud-respawn{font-size:24px}
+  .arcade-screen{padding:6px calc(12px + env(safe-area-inset-right)) 0 calc(12px + env(safe-area-inset-left))}
+  .arcade-screen header{padding-bottom:4px}.arcade-screen header h2{font-size:22px}.arc-count{font-size:10px}.arc-count b{font-size:13px}
+  .arc-body{grid-template-columns:230px 1fr;gap:12px;padding-top:0}
+  .arc-setup h4{font-size:9px;margin:6px 0 4px;padding-bottom:2px}
+  .arc-hero{padding:3px 2px}.arc-hero img{width:30px;height:30px}.arc-hero b{display:none}
+  .arc-night{padding:3px 5px;grid-template-columns:16px 1fr;column-gap:4px}.arc-night i{font-size:14px}.arc-night b{font-size:8.5px}.arc-night small{display:none}
+  .arc-foe{width:34px;height:34px}
+  .arc-diff .chip{padding:4px 7px;font-size:9.5px;margin-right:4px;letter-spacing:.06em}
+  .arc-filters{margin:4px 0 6px}.arc-filters .chip{padding:5px 8px;font-size:10px}
+  .arc-roster .grid{grid-template-columns:repeat(auto-fill,minmax(66px,1fr));grid-auto-rows:82px;gap:5px}
+  .arc-info{min-height:0;padding:4px 0;gap:8px}.arc-info img{width:40px;height:40px}.arc-info b{font-size:12px}.arc-info .fac{font-size:11px}
+  .arc-info .kvs{font-size:9px;margin:1px 0}.arc-info p,.arc-info .hint{font-size:12px;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+  .arcade-screen footer{padding:4px 0 calc(6px + env(safe-area-inset-bottom));gap:8px}
+  .arcade-screen footer .btn{min-width:96px;padding:7px 10px;font-size:11px}
+  .arc-score .rank{width:64px;height:64px;font-size:44px}.arc-score .num{font-size:30px}.arc-score{margin:4px 0}
+  .arc-six .slot{width:34px;height:34px}
 }
 
 /* ---------- phones held upright (narrow screens) ---------- */
@@ -446,6 +516,29 @@ body.no-help .hud-help{display:none}
   .hud-voice{top:22vh;font-size:15px}
   .hud-banner{top:24vh}.hud-banner h1{font-size:30px}.hud-banner p{font-size:14px;padding:0 16px}
   .hud-respawn{font-size:24px;padding:0 16px}
+  /* arcade: one long scrolling page, with your six and the Fight button pinned to the bottom */
+  .arcade-screen{display:block;padding:calc(10px + env(safe-area-inset-top)) 10px 0;overflow-y:auto}
+  .arcade-screen header{flex-direction:column;align-items:flex-start;gap:4px}.arcade-screen header h2{font-size:30px}
+  .arc-body{display:block}
+  .arc-setup{overflow:visible;padding:0}
+  .arc-hero img{width:48px;height:48px}
+  .arc-nights{grid-template-columns:1fr 1fr}.arc-night{grid-template-columns:22px 1fr;padding:5px 6px;column-gap:6px}.arc-night i{font-size:18px}
+  .arc-night b{font-size:10px}.arc-night small{font-size:10px}
+  .arc-foe{width:40px;height:40px}
+  .arc-roster{display:block;margin-top:8px}
+  .arc-roster .grid{overflow:visible;padding:2px 0 10px;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));grid-auto-rows:88px;gap:6px}
+  .arc-filters{position:sticky;top:-10px;z-index:2;background:rgba(5,4,7,.96);padding:8px 0;margin:0}
+  .arc-filters .chip{padding:6px 9px;font-size:10px}
+  .arc-dock{position:sticky;bottom:0;z-index:3;background:rgba(7,6,8,.98);box-shadow:0 -14px 30px rgba(0,0,0,.85)}
+  .arc-info{min-height:0;padding:6px 0;gap:8px}.arc-info img{width:44px;height:44px}
+  .arc-info p,.arc-info .hint{font-size:12.5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .arc-info .kvs{font-size:9.5px}
+  .arcade-screen footer{flex-wrap:wrap;justify-content:center;gap:6px;padding:6px 0 calc(10px + env(safe-area-inset-bottom))}
+  .arcade-screen footer .loadout{order:-1;width:100%}.arcade-screen footer .loadout label{display:none}
+  .arcade-screen footer .btn{min-width:0;flex:1;padding:10px 6px;font-size:12px}
+  .arc-score{gap:14px}.arc-score .rank{width:70px;height:70px;font-size:48px}.arc-score .num{font-size:34px}
+  .arcade-results{padding:calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom))}
+  .arcade-results .eyebrow{text-align:center;padding:0 12px;letter-spacing:.15em}
 }
 </style>
 </head>

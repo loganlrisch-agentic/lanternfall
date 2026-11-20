@@ -234,6 +234,16 @@ export const BARKS = {
   bossDead: ['...', 'It does not matter. There are always more of us.'],
 };
 
+// New horrors woven into each night: [enemy, count, first wave]. Counts grow as the night goes on.
+export const NEW_FOES = {
+  1: [['ghoul', 2, 1], ['bloater', 1, 2], ['gravebanner', 1, 4], ['boneCatapult', 1, 6]],
+  2: [['briarling', 2, 0], ['shade', 2, 2], ['hag', 1, 3], ['sporeMother', 1, 5]],
+  3: [['rimehound', 3, 0], ['frostLich', 1, 2], ['ghoul', 2, 3], ['gatebreaker', 1, 5]],
+  4: [['skulltaker', 2, 1], ['bloodShaman', 1, 2], ['bloater', 2, 3], ['boneCatapult', 1, 5]],
+  5: [['drownedKnight', 2, 1], ['bellWraith', 1, 2], ['shade', 2, 3], ['fleshColossus', 1, 6]],
+  6: [['gaunt', 2, 1], ['bellWraith', 1, 3], ['frostLich', 1, 5]],
+};
+
 export const UPGRADES = {
   walls: { name: 'Walls', desc: '+20% castle durability per rank.', costs: [200, 350, 550, 800, 1100] },
   towers: { name: 'Arrow Towers', desc: 'Towers shoot faster and harder. Rank 3: fire arrows. Rank 5: ballistae.', costs: [180, 320, 500, 750, 1000] },

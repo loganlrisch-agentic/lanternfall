@@ -1,5 +1,5 @@
 // Campaign progress + settings, persisted in localStorage when available.
-import { ALLIES } from './data/units.js';
+import { ALLIES, HEROES } from './data/units.js';
 
 const KEY = 'lanternfall_save_v1';
 const SKEY = 'lanternfall_settings_v1';
@@ -32,3 +32,31 @@ export function isUnlocked(a, save) {
 }
 export function unlockedAllies(save) { return ALLIES.filter(a => isUnlocked(a, save)); }
 export function loadoutSize(save) { return Math.min(8, 4 + Math.floor((save.chapter - 1) * 0.8) + 1); }
+
+// ---------------- arcade ----------------
+// Kept apart from the story save: the last setup you used and your best score on each battlefield.
+const AKEY = 'lanternfall_arcade_v1';
+export function loadArcade() {
+  const d = { last: null, best: {} };
+  try { const s = localStorage.getItem(AKEY); return s ? { ...d, ...JSON.parse(s) } : d; } catch (e) { return d; }
+}
+export function writeArcade(a) { try { localStorage.setItem(AKEY, JSON.stringify(a)); } catch (e) { /* ignore */ } }
+
+// A ready-made army and Warden for an arcade battle on a given night: what a player who had
+// fought through the story to that point would typically have.
+export function arcadeSave(cfg) {
+  const n = cfg.night;
+  const s = newSave(cfg.hero, cfg.diff);
+  s.chapter = n;
+  s.loadout = cfg.picks.slice(0, 6);
+  for (const k of ['spareCursed', 'orcs', 'redeemAldous']) s.flags[k] = true;
+  const r = Math.max(0, n - 2);
+  s.level = 1 + (n - 1) * 2;
+  for (const k of ['walls', 'towers', 'barracks', 'armory', 'plate']) s.upgrades[k] = r;
+  for (const k of ['lantern', 'horn']) s.upgrades[k] = Math.max(0, r - 1);
+  if (n >= 3) for (const id of s.loadout) s.unitLevels[id] = n >= 5 ? 3 : 2;
+  const t = Math.min(3, Math.floor((n - 1) / 2));
+  for (const ab of HEROES[cfg.hero]?.abilities || []) s.talents[ab] = t;
+  s.arcade = true;
+  return s;
+}

@@ -11,7 +11,7 @@ import { Screens } from './ui/screens.js';
 import { Battle } from './game/battle.js';
 import { HEROES, ALLIES, ENEMIES } from './game/data/units.js';
 import { CHAPTERS, CAST } from './game/data/campaign.js';
-import { newSave, loadSave, writeSave, loadSettings } from './game/save.js';
+import { newSave, loadSave, writeSave, loadSettings, loadArcade, writeArcade, arcadeSave } from './game/save.js';
 import { audio } from './core/audio.js';
 import { TEAM } from './game/config.js';
 import { rand, sleep } from './core/util.js';
@@ -60,7 +60,7 @@ class Game {
     for (const hr of Object.values(HEROES)) items.push({ key: 'hero_' + hr.id, build: () => inst(hr.model, hr.opts, hr.weapons, 0.9), idle: hr.anim === 'bow' ? 'Ranged_Bow_Idle' : 'Idle_B' });
     for (const a of ALLIES) items.push({ key: 'ally_' + a.id, build: () => a.anim === 'siege' ? stat(a.model, a.scale) : inst(Array.isArray(a.model) ? a.model[0] : a.model, a.opts || {}, a.weapons || [], a.scale), idle: a.anim === 'bow' ? 'Ranged_Bow_Idle' : 'Idle_A' });
     for (const [id, c] of Object.entries(CAST)) if (c.model) items.push({ key: 'cast_' + id, build: () => inst(c.model, {}, c.weapons || [], c.scale || 0.88), idle: 'Idle_B' });
-    for (const [k, e] of Object.entries(ENEMIES)) items.push({ key: 'enemy_' + k, build: () => { const o = { ...(e.opts || {}) }; if (e.tint) { o.tint = e.tint; o.tintMix = 0.75; } if (e.glow) o.glowColor = e.glow; const i = inst(e.model, o, e.weapons || [], e.scale); i.meshes.forEach(m => setRim(m.material, '#8a4aff', 0.6)); return i; } });
+    for (const [k, e] of Object.entries(ENEMIES)) items.push({ key: 'enemy_' + k, build: () => { if (e.anim === 'siege') { const g = stat(e.model, e.scale); if (e.tint) g.root.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.color.lerp(new THREE.Color(e.tint), 0.7); } }); return g; } const o = { ...(e.opts || {}) }; if (e.tint) { o.tint = e.tint; o.tintMix = 0.75; } if (e.glow) o.glowColor = e.glow; const i = inst(e.model, o, e.weapons || [], e.scale); i.meshes.forEach(m => setRim(m.material, '#8a4aff', 0.6)); return i; } });
     renderPortraits(this.R.renderer, items, 160);
   }
 
@@ -120,6 +120,7 @@ class Game {
   }
 
   toTitle() {
+    this.arcade = null;
     this.disposeBattle();
     if (!this.titleDead) this.buildTitle();
     this.paused = false;
@@ -131,8 +132,70 @@ class Game {
     this.screens.title(loadSave());
   }
 
+  // ---------------- arcade ----------------
+  toArcade() {
+    this.disposeBattle();
+    if (!this.titleDead) this.buildTitle();
+    this.paused = false; this.arcade = null;
+    this.hud.show(false);
+    this.input.enabled = false;
+    audio.setMood('camp', 'title');
+    this.screens.arcade();
+  }
+
+  async startArcade(cfg) {
+    const store = loadArcade();
+    store.last = cfg; writeArcade(store);
+    this.arcade = cfg;
+    const ch = CHAPTERS[cfg.night - 1];
+    this.screens.hide();
+    this.paused = false;
+    this.input.enabled = false;
+    const card = this.screens.chapterCard(ch, `Arcade · Night ${['', 'I', 'II', 'III', 'IV', 'V', 'VI'][ch.n]}`, 2200);
+    await sleep(150);
+    this.disposeBattle();
+    this.disposeTitle();
+    this.battle = new Battle(this, ch, arcadeSave(cfg));
+    this.hud.setup(this.battle);
+    this.applySettings();
+    this.world.camera.fov = 55; this.world.camera.updateProjectionMatrix();
+    this.R.resize();
+    this.world.fx.setPixelScale(window.innerHeight);
+    audio.setMood('battle', ch.biome);
+    const lp = this.battle.level.lanternPos;
+    this.battle.cam.cinematic(new THREE.Vector3(10, 18, 30), new THREE.Vector3(60, 4, 0), new THREE.Vector3(-40, 9, 16), lp.clone().setY(lp.y - 10), 3);
+    await card;
+    this.input.enabled = true;
+    this.battle.begin();
+  }
+
+  async arcadeEnd(win, b) {
+    const cfg = this.arcade, st = b.stats;
+    const castle = Math.max(0, b.castle.hp / b.castle.maxHp);
+    const mult = { story: 0.5, normal: 1, hard: 1.6 }[cfg.diff] || 1;
+    const parts = [['Hollow slain', st.kills, Math.round(st.xp * 5)]];
+    if (win) parts.push(['Dawn reached', `Night ${cfg.night}`, 1000 + 400 * cfg.night], ['Walls standing', Math.round(castle * 100) + '%', Math.round(castle * 1500)]);
+    const base = parts.reduce((a, p) => a + p[2], 0);
+    const score = Math.round(base * mult);
+    const rank = !win ? '—' : castle >= 0.9 ? 'S' : castle >= 0.7 ? 'A' : castle >= 0.4 ? 'B' : 'C';
+    const store = loadArcade();
+    const key = `${cfg.night}:${cfg.diff}`;
+    const prev = store.best[key];
+    const record = !prev || score > prev.score;
+    if (record) store.best[key] = { score, rank, win, hero: cfg.hero, picks: cfg.picks, at: Date.now() };
+    writeArcade(store);
+    this.input.enabled = false;
+    this.hud.show(false);
+    if (this.testMode) { window.__result = { win, stats: st, score, rank }; return; }
+    const action = await this.screens.arcadeResults(win, { cfg, parts, mult, score, rank, record, prev, kills: st.kills, lost: st.lost, summoned: st.summoned, time: st.time });
+    if (action === 'again') return this.startArcade(cfg);
+    if (action === 'troops') return this.toArcade();
+    this.toTitle();
+  }
+
   // ---------------- campaign ----------------
   async newCampaign(hero, diff) {
+    this.arcade = null;
     this.save = newSave(hero, diff);
     writeSave(this.save);
     audio.setMood('story', 'title');
@@ -142,6 +205,7 @@ class Game {
   }
 
   continueCampaign() {
+    this.arcade = null;
     this.save = loadSave();
     if (!this.save) return this.toTitle();
     if (this.save.chapter > 6) return this.toTitle();
@@ -151,6 +215,7 @@ class Game {
   }
 
   async startChapter(n) {
+    this.arcade = null;
     this.screens.hide();
     this.paused = false;
     const ch = CHAPTERS[n - 1];
@@ -181,6 +246,7 @@ class Game {
   }
 
   async onBattleEnd(win, b) {
+    if (this.arcade) return this.arcadeEnd(win, b);
     const s = this.save, st = b.stats, hero = b.hero;
     const levels = hero.levelsGained || 0;
     const gold = Math.round(st.gold + (win ? b.chapter.reward : 0));
@@ -224,6 +290,12 @@ class Game {
     this.paused = true;
     this.input.enabled = false;
     this.input.releaseLock();
+    if (this.arcade) return this.screens.pause(() => this.resume(), a => {
+      this.paused = false;
+      if (a === 'restart') this.startArcade(this.arcade);
+      if (a === 'camp') this.toArcade();
+      if (a === 'title') this.toTitle();
+    }, true);
     this.screens.pause(() => this.resume(), a => {
       this.paused = false;
       const n = this.battle.chapter.n;
@@ -312,6 +384,10 @@ class Game {
       for (const k of ['walls', 'towers', 'barracks', 'armory', 'plate']) this.save.upgrades[k] = r;
       for (const k of ['lantern', 'horn']) this.save.upgrades[k] = Math.max(0, r - 1);
       if (ch >= 3) for (const id of this.save.loadout) this.save.unitLevels[id] = 2;
+    }
+    if (params.get('arcade')) {
+      this.arcade = { hero: this.save.hero, diff: this.save.difficulty, night: ch, picks: this.save.loadout.slice(0, 6) };
+      this.save = arcadeSave(this.arcade);
     }
     this.battle = new Battle(this, CHAPTERS[ch - 1], this.save);
     this.hud.setup(this.battle);

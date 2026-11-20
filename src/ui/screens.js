@@ -1,9 +1,9 @@
 // Menus: title, hero select, chapter cards, prologue, war camp, results, pause, settings, credits, ending.
 import { A } from '../core/assets.js';
 import { HEROES, ABILITIES, ALLIES, ENEMIES } from '../game/data/units.js';
-import { CHAPTERS, PROLOGUE, UPGRADES, UNIT_LEVEL_COSTS } from '../game/data/campaign.js';
+import { CHAPTERS, PROLOGUE, UPGRADES, UNIT_LEVEL_COSTS, NEW_FOES } from '../game/data/campaign.js';
 import { DIFFICULTY } from '../game/battle.js';
-import { isUnlocked, loadoutSize, writeSave, writeSettings } from '../game/save.js';
+import { isUnlocked, loadoutSize, writeSave, writeSettings, loadArcade, writeArcade } from '../game/save.js';
 import { icon } from './icons.js';
 import { audio } from '../core/audio.js';
 import { QUALITY } from '../core/renderer.js';
@@ -34,8 +34,9 @@ export class Screens {
     const el = h(`<div class="screen title-screen">
       <div class="logo"><h1>Lanternfall</h1><p>When the last light dies, the fog comes for you.</p></div>
       <nav class="menu">
-        ${save && save.chapter <= 6 ? `<button class="btn primary" data-a="continue">Continue<small>Chapter ${ROMAN[save.chapter]} · ${ch.title}</small></button>` : ''}
-        <button class="btn ${save ? '' : 'primary'}" data-a="new">New Campaign</button>
+        <button class="btn primary" data-a="arcade">Arcade<small>Any six troops · any battlefield</small></button>
+        ${save && save.chapter <= 6 ? `<button class="btn" data-a="continue">Continue Story<small>Chapter ${ROMAN[save.chapter]} · ${ch.title}</small></button>` : ''}
+        <button class="btn" data-a="new">${save ? 'New Story' : 'Story Campaign'}</button>
         <button class="btn" data-a="settings">Settings</button>
         <button class="btn" data-a="credits">Credits</button>
         ${canFullscreen() ? `<button class="btn" data-a="fullscreen">${document.fullscreenElement ? 'Leave full screen' : 'Full screen'}</button>` : ''}
@@ -46,6 +47,7 @@ export class Screens {
       const a = e.target.closest('[data-a]')?.dataset.a;
       if (!a) return;
       audio.init();
+      if (a === 'arcade') this.game.toArcade();
       if (a === 'continue') this.game.continueCampaign();
       if (a === 'new') { if (save) this.confirm('Begin a new campaign? Your current progress will be lost.', () => this.heroSelect()); else this.heroSelect(); }
       if (a === 'settings') this.settings(() => this.title(save));
@@ -101,6 +103,130 @@ export class Screens {
     this.show(el);
   }
 
+  // ---------------- arcade ----------------
+  arcade() {
+    const store = loadArcade();
+    const valid = id => ALLIES.some(a => a.id === id);
+    const cfg = { hero: 'knight', diff: 'normal', night: 1, picks: ['footman', 'shieldbearer', 'archer', 'adept', 'cleric', 'paladin'], ...(store.last || {}) };
+    cfg.picks = (cfg.picks || []).filter(valid).slice(0, 6);
+    let filter = 'all', info = null;
+    const ROLE = a => a.anim === 'siege' ? 'heavy' : (a.anim === 'support' || a.special?.heal || a.special?.regrowth) ? 'support'
+      : a.range > 4 ? 'ranged' : (a.pop >= 3 || /^large/.test(a.anim)) ? 'heavy'
+      : (/shield/i.test(a.anim) || a.armor >= 6 || a.anim === 'spear') ? 'front' : 'melee';
+    const FILTERS = { all: 'All', front: 'Front line', melee: 'Fighters', ranged: 'Ranged', support: 'Healers', heavy: 'Giants & siege' };
+    const ORDER = ['Dawnhold', 'Lantern Order', 'Thornwood', 'Highforge', 'Red Maw', 'The Unquiet', 'Wanderers'];
+    const roster = ALLIES.slice().sort((a, b) => ORDER.indexOf(a.faction) - ORDER.indexOf(b.faction) || a.cost - b.cost);
+    const foesOf = n => {
+      const c = CHAPTERS[n - 1];
+      const ids = new Set(c.waves.flatMap(w => w.spawn.map(x => x[0])));
+      for (const [t] of NEW_FOES[n] || []) ids.add(t);
+      return [...ids].filter(k => ENEMIES[k]).concat(c.boss.type);
+    };
+    const best = n => store.best[`${n}:${cfg.diff}`];
+    const el = h(`<div class="screen arcade-screen">
+      <header><div><div class="eyebrow">Arcade</div><h2>Choose your six</h2></div><div class="arc-count"></div></header>
+      <div class="arc-body">
+        <section class="arc-setup">
+          <h4>Warden</h4><div class="arc-heroes"></div>
+          <h4>Battlefield</h4><div class="arc-nights"></div>
+          <h4>Difficulty</h4><div class="chips arc-diff"></div>
+          <h4>In the fog tonight</h4><div class="arc-foes"></div>
+        </section>
+        <section class="arc-roster"><div class="arc-filters"></div><div class="grid"></div></section>
+      </div>
+      <div class="arc-dock"><div class="arc-info"></div>
+      <footer><button class="btn" data-a="back">Back</button><div class="loadout"></div><button class="btn" data-a="random">Random six</button><button class="btn primary" data-a="go">Fight</button></footer></div>
+    </div>`);
+    const save = () => { store.last = { ...cfg }; writeArcade(store); };
+    const setInfo = (html) => { info = html; $('.arc-info', el).innerHTML = html || `<span class="hint">Tap a troop to add it to your six; tap it again to send it home. Every troop costs coin in battle, and coin is always short. Mix a front line, shooters and healers.</span>`; };
+    const unitInfo = a => `<img src="${A.portraits['ally_' + a.id]}"><div><b>${a.name}</b>${a.count > 1 ? ` ×${a.count}` : ''} <span class="fac">${a.faction}</span><div class="kvs"><span>${icon('sun', 12)} ${a.cost} coin</span><span>Army ${a.pop * a.count}</span><span>${a.range > 4 ? 'Range ' + a.range : 'Melee'}</span><span>HP ${a.hp}</span><span>DMG ${a.dmg}</span>${a.limit < 99 ? `<span>Max ${a.limit}</span>` : ''}</div><p>${a.desc}</p></div>`;
+    const foeInfo = k => { const e = ENEMIES[k]; return `<img src="${A.portraits['enemy_' + k] || ''}"><div><b>${e.name}</b> <span class="fac">${e.boss ? 'Boss' : 'Enemy'}</span><div class="kvs"><span>HP ${e.hp}</span><span>DMG ${e.dmg}</span><span>${e.range > 4 ? 'Range ' + e.range : 'Melee'}</span></div><p>${e.desc || ''}</p></div>`; };
+    const heroInfo = hr => `<img src="${A.portraits['hero_' + hr.id]}"><div><b>${hr.name}</b> <span class="fac">${hr.title}</span><p>${hr.blurb}</p><div class="kvs">${hr.abilities.map(ab => `<span>${icon(ABILITIES[ab].icon, 12)} ${ABILITIES[ab].name}</span>`).join('')}</div></div>`;
+
+    const render = () => {
+      $('.arc-heroes', el).innerHTML = Object.values(HEROES).map(hr => `<button class="arc-hero ${cfg.hero === hr.id ? 'sel' : ''}" data-h="${hr.id}"><img src="${A.portraits['hero_' + hr.id] || ''}"><b>${hr.name}</b><small>${hr.title}</small></button>`).join('');
+      $('.arc-nights', el).innerHTML = CHAPTERS.map(c => { const b = best(c.n); return `<button class="arc-night ${cfg.night === c.n ? 'sel' : ''}" data-n="${c.n}"><i>${ROMAN[c.n]}</i><b>${c.title}</b><small>${c.place}${b ? ` · best ${b.score.toLocaleString()}${b.win ? ' ' + b.rank : ''}` : ''}</small></button>`; }).join('');
+      $('.arc-diff', el).innerHTML = Object.entries(DIFFICULTY).map(([k, d]) => `<button class="chip ${k === cfg.diff ? 'sel' : ''}" data-d="${k}">${d.label}</button>`).join('');
+      $('.arc-foes', el).innerHTML = foesOf(cfg.night).map(k => `<button class="arc-foe ${ENEMIES[k].boss ? 'boss' : ''}" data-f="${k}" title="${ENEMIES[k].name}"><img src="${A.portraits['enemy_' + k] || ''}"></button>`).join('');
+      $('.arc-filters', el).innerHTML = Object.entries(FILTERS).map(([k, l]) => `<button class="chip ${filter === k ? 'sel' : ''}" data-filter="${k}">${l}</button>`).join('');
+      $('.arc-roster .grid', el).innerHTML = roster.filter(a => filter === 'all' || ROLE(a) === filter).map(a => {
+        const i = cfg.picks.indexOf(a.id);
+        return `<div class="ucard ${i >= 0 ? 'in' : ''}" data-u="${a.id}"><img src="${A.portraits['ally_' + a.id]}" alt=""><span class="c">${a.cost}</span>${i >= 0 ? `<span class="pick">${i + 1}</span>` : ''}<div class="nm">${a.name}</div></div>`;
+      }).join('');
+      $('.loadout', el).innerHTML = `<label>Your six</label>` + Array.from({ length: 6 }, (_, i) => {
+        const a = cfg.picks[i] && ALLIES.find(x => x.id === cfg.picks[i]);
+        return a ? `<div class="slot" data-rm="${a.id}" title="Remove ${a.name}"><img src="${A.portraits['ally_' + a.id]}"><span>${a.cost}</span></div>` : `<div class="slot empty"></div>`;
+      }).join('');
+      $('.arc-count', el).innerHTML = `<b>${ALLIES.length}</b> troops · <b>${Object.keys(ENEMIES).length}</b> horrors`;
+      $('[data-a="go"]', el).disabled = !cfg.picks.length;
+    };
+    const randomSix = () => {
+      // a sensible random army: a front line, fighters, shooters and a healer, then one wild card
+      const pool = r => roster.filter(a => ROLE(a) === r && !cfg.picks.includes(a.id));
+      const take = r => { const p = pool(r); if (p.length) cfg.picks.push(p[Math.floor(Math.random() * p.length)].id); };
+      cfg.picks = [];
+      take('front'); take('melee'); take('ranged'); take('ranged'); take('support');
+      take(['heavy', 'melee', 'ranged', 'front'][Math.floor(Math.random() * 4)]);
+    };
+    el.addEventListener('click', e => {
+      const t = e.target;
+      const hh = t.closest('[data-h]'); if (hh) { cfg.hero = hh.dataset.h; setInfo(heroInfo(HEROES[cfg.hero])); save(); render(); return; }
+      const n = t.closest('[data-n]'); if (n) { cfg.night = +n.dataset.n; save(); render(); return; }
+      const d = t.closest('[data-d]'); if (d) { cfg.diff = d.dataset.d; save(); render(); return; }
+      const f = t.closest('[data-f]'); if (f) { setInfo(foeInfo(f.dataset.f)); return; }
+      const fl = t.closest('[data-filter]'); if (fl) { filter = fl.dataset.filter; render(); return; }
+      const rm = t.closest('[data-rm]'); if (rm) { cfg.picks = cfg.picks.filter(x => x !== rm.dataset.rm); save(); render(); return; }
+      const u = t.closest('[data-u]');
+      if (u) {
+        const id = u.dataset.u, a = ALLIES.find(x => x.id === id);
+        const i = cfg.picks.indexOf(id);
+        if (i >= 0) cfg.picks.splice(i, 1);
+        else if (cfg.picks.length < 6) { cfg.picks.push(id); audio.play('equip', null, 0.4); }
+        else { setInfo(unitInfo(a) + `<em class="full">Your six are chosen. Remove one first.</em>`); return; }
+        setInfo(unitInfo(a)); save(); render(); return;
+      }
+      const a = t.closest('[data-a]')?.dataset.a;
+      if (a === 'back') this.game.toTitle();
+      if (a === 'random') { randomSix(); save(); render(); setInfo(null); }
+      if (a === 'go') {
+        if (!cfg.picks.length) return;
+        const go = () => this.game.startArcade({ hero: cfg.hero, diff: cfg.diff, night: cfg.night, picks: cfg.picks.slice() });
+        if (cfg.picks.length < 6) this.confirm(`March with only ${cfg.picks.length} of six?`, go); else go();
+      }
+    });
+    el.addEventListener('mouseover', e => {
+      if (matchMedia('(pointer: coarse)').matches) return;
+      const u = e.target.closest('[data-u]'); if (u) return setInfo(unitInfo(ALLIES.find(x => x.id === u.dataset.u)));
+      const f = e.target.closest('[data-f]'); if (f) return setInfo(foeInfo(f.dataset.f));
+    });
+    render(); setInfo(null);
+    this.show(el);
+  }
+
+  arcadeResults(win, d) {
+    return new Promise(res => {
+      const t = `${Math.floor(d.time / 60)}:${String(Math.floor(d.time % 60)).padStart(2, '0')}`;
+      const c = CHAPTERS[d.cfg.night - 1];
+      const el = h(`<div class="screen results arcade-results ${win ? 'win' : 'lose'}">
+        <div class="eyebrow">Arcade · Night ${ROMAN[c.n]} · ${c.title} · ${DIFFICULTY[d.cfg.diff].label}</div>
+        <h1>${win ? 'Dawn Breaks' : 'The Walls Fall'}</h1>
+        <div class="arc-score"><div class="rank r-${d.rank === '—' ? 'x' : d.rank}">${d.rank}</div><div><div class="num">${d.score.toLocaleString()}</div>
+          <div class="sub">${d.record ? '<b class="rec">New best!</b>' : d.prev ? `Best: ${d.prev.score.toLocaleString()}` : ''}</div></div></div>
+        <div class="kv big">
+          ${d.parts.map(([k, v, pts]) => `<span>${k} <em>${v}</em></span><b>+${pts.toLocaleString()}</b>`).join('')}
+          ${d.mult !== 1 ? `<span>${DIFFICULTY[d.cfg.diff].label}</span><b>×${d.mult}</b>` : ''}
+          <span>Soldiers called · lost</span><b>${d.summoned} · ${d.lost}</b>
+          <span>Time</span><b>${t}</b>
+        </div>
+        <div class="row arc-six">${d.cfg.picks.map(id => `<div class="slot"><img src="${A.portraits['ally_' + id]}"></div>`).join('')}</div>
+        <div class="row"><button class="btn" data-a="title">Title</button><button class="btn" data-a="troops">Change troops</button><button class="btn primary" data-a="again">Play again</button></div>
+      </div>`);
+      el.addEventListener('click', e => { const a = e.target.closest('[data-a]')?.dataset.a; if (a) { this.hide(); res(a); } });
+      this.show(el);
+      audio.play(win ? 'unlock' : 'bell', null, 0.6);
+    });
+  }
+
   // ---------------- story cards ----------------
   prologue() {
     return new Promise(res => {
@@ -119,12 +245,12 @@ export class Screens {
     });
   }
 
-  chapterCard(ch) {
+  chapterCard(ch, label = `Chapter ${ROMAN[ch.n]}`, ms = 3000) {
     return new Promise(res => {
-      const el = h(`<div class="screen chapter-card"><div class="n">Chapter ${ROMAN[ch.n]}</div><h1>${ch.title}</h1><div class="p">${ch.place}</div></div>`);
+      const el = h(`<div class="screen chapter-card"><div class="n">${label}</div><h1>${ch.title}</h1><div class="p">${ch.place}</div></div>`);
       this.show(el);
       audio.play('bell', null, 0.5);
-      setTimeout(() => { this.hide(); setTimeout(res, 350); }, 3000);
+      setTimeout(() => { this.hide(); setTimeout(res, 350); }, ms);
     });
   }
 
@@ -273,19 +399,19 @@ export class Screens {
   }
 
   // ---------------- pause / settings / credits ----------------
-  pause(onResume, onAction) {
+  pause(onResume, onAction, arcade = false) {
     const el = h(`<div class="screen pause"><div class="panel"><h2>The vigil waits</h2>
       <button class="btn primary" data-a="resume">Resume</button>
       <button class="btn" data-a="settings">Settings</button>
-      <button class="btn" data-a="restart">Restart chapter</button>
-      <button class="btn" data-a="camp">Retreat to camp</button>
+      <button class="btn" data-a="restart">${arcade ? 'Restart battle' : 'Restart chapter'}</button>
+      <button class="btn" data-a="camp">${arcade ? 'Change troops' : 'Retreat to camp'}</button>
       <button class="btn" data-a="title">Quit to title</button>
       <div class="controls">${CONTROLS}</div></div></div>`);
     el.addEventListener('click', e => {
       const a = e.target.closest('[data-a]')?.dataset.a;
       if (!a) return;
       if (a === 'resume') { this.hide(); onResume(); }
-      else if (a === 'settings') this.settings(() => this.pause(onResume, onAction), true);
+      else if (a === 'settings') this.settings(() => this.pause(onResume, onAction, arcade), true);
       else onAction(a);
     });
     this.show(el);
