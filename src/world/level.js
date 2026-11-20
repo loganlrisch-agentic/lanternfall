@@ -14,9 +14,10 @@ const riftShader = {
       vec2 p = vUv - 0.5; float r = length(p) * 2.0; float a = atan(p.y, p.x);
       float sw = sin(a * 5.0 + r * 9.0 - uTime * 3.0) * 0.5 + 0.5;
       float sw2 = sin(a * 3.0 - r * 14.0 + uTime * 2.0) * 0.5 + 0.5;
-      vec3 c = mix(uColor2, uColor, sw * 0.7 + sw2 * 0.3) * (1.5 - r) * 2.0 * uPower;
+      vec3 c = mix(uColor2, uColor, sw * 0.7 + sw2 * 0.3) * max(1.5 - r, 0.0) * 2.0 * uPower;
       float alpha = smoothstep(1.0, 0.75, r) * (0.65 + 0.35 * sw);
-      gl_FragColor = vec4(c + vec3(1.0) * pow(1.0 - r, 6.0) * 2.0 * uPower, alpha);
+      // r passes 1.0 in the quad's corners; pow() of a negative base is NaN on real GPUs
+      gl_FragColor = vec4(c + vec3(1.0) * pow(max(1.0 - r, 0.0), 6.0) * 2.0 * uPower, alpha);
     }`,
 };
 
@@ -24,7 +25,7 @@ const shieldShader = {
   uniforms: { uTime: globalUniforms.uTime, uColor: { value: new THREE.Color('#9b6bff') }, uAlpha: { value: 0.6 } },
   vertexShader: `varying vec3 vN; varying vec3 vV; varying vec3 vP; void main(){ vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position,1.0); vV = normalize(-mv.xyz); vP = position; gl_Position = projectionMatrix * mv; }`,
   fragmentShader: `uniform float uTime, uAlpha; uniform vec3 uColor; varying vec3 vN; varying vec3 vV; varying vec3 vP;
-    void main(){ float f = pow(1.0 - abs(dot(vN, vV)), 2.5); float hex = sin(vP.x * 2.0 + uTime) * sin(vP.y * 2.0 - uTime * 0.7) * sin(vP.z * 2.0);
+    void main(){ float f = pow(clamp(1.0 - abs(dot(vN, vV)), 0.0, 1.0), 2.5); float hex = sin(vP.x * 2.0 + uTime) * sin(vP.y * 2.0 - uTime * 0.7) * sin(vP.z * 2.0);
       float a = (f * 0.75 + smoothstep(0.85, 1.0, hex) * 0.18 + 0.02) * uAlpha; gl_FragColor = vec4(uColor * 1.1, a); }`,
 };
 

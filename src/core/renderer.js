@@ -15,6 +15,20 @@ export const QUALITY = {
   ultra: { pr: 2.0, shadow: 4096, soft: true, bloom: true, ao: true, msaa: 4, grass: 1.3, label: 'Ultra' },
 };
 
+// Replaces NaN/Inf/negative pixels before bloom. One bad pixel would otherwise get
+// blurred across the whole screen by UnrealBloomPass and show up as black flashes.
+const SanitizeShader = {
+  uniforms: { tDiffuse: { value: null } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `uniform sampler2D tDiffuse; varying vec2 vUv;
+    void main(){
+      vec4 c = texture2D(tDiffuse, vUv);
+      vec3 rgb = clamp(c.rgb, 0.0, 64.0);   // also caps +Inf from overflowing half floats
+      if (isnan(c.r) || isnan(c.g) || isnan(c.b)) rgb = vec3(0.0);
+      gl_FragColor = vec4(rgb, isnan(c.a) ? 1.0 : clamp(c.a, 0.0, 1.0));
+    }`,
+};
+
 const GradeShader = {
   uniforms: {
     tDiffuse: { value: null },
@@ -100,6 +114,7 @@ export class Renderer {
       composer.addPass(new RenderPass(scene, camera));
       this.ao = null;
     }
+    composer.addPass(new ShaderPass(SanitizeShader));
     if (q.bloom) {
       this.bloom = new UnrealBloomPass(new THREE.Vector2(size.w / 2, size.h / 2), 0.55, 0.55, 0.92);
       composer.addPass(this.bloom);
@@ -136,6 +151,7 @@ export class Renderer {
 
   render(dt) {
     if (!this.composer) return;
+    if (this.pendingResize) { this.pendingResize = false; this.resize(); }
     if (this.grade) this.grade.uniforms.uTime.value += dt;
     this.composer.render(dt);
     // dynamic resolution: keep the frame rate playable on weaker machines
@@ -146,7 +162,7 @@ export class Renderer {
       let next = this.dynScale;
       if (avg > 1 / 38 && this.dynScale > 0.6) next = Math.max(0.6, this.dynScale - 0.1);
       else if (avg < 1 / 57 && this.dynScale < 1) next = Math.min(1, this.dynScale + 0.05);
-      if (next !== this.dynScale) { this.dynScale = next; this.resize(); }
+      if (next !== this.dynScale) { this.dynScale = next; this.pendingResize = true; }
     }
   }
 }

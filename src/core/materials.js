@@ -59,7 +59,7 @@ export function globalPatch(shader) {
         float grimL = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
         diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(grimL), diffuseColor.rgb, uGrimSat) * uGrimDark, uGrimOn);`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-        float rimF = pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 2.4);
+        float rimF = pow(1.0 - clamp(dot(normal, normalize(vViewPosition + vec3(0.0, 0.0, 1e-5))), 0.0, 1.0), 2.4);
         totalEmissiveRadiance += uRim * rimF;
         totalEmissiveRadiance += diffuseColor.rgb * uFlash * 0.6 * max(normal.y, 0.2);`);
   }
