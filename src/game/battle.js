@@ -541,6 +541,7 @@ export class Battle {
     const w = this.waves[i];
     this.waveIdx = i;
     this.hud.banner(`WAVE ${i + 1} / ${this.waves.length}`, w.msg, 3);
+    audio.cue('wave');
     this.sfx('warhorn', this.level.enemySpawn, 1);
     this.after(0.6, () => this.sfx('bell', null, 0.6));
     this.world.fog.surge(1);
@@ -556,7 +557,7 @@ export class Battle {
     // (two at most per wave, so the screen doesn't fill with text; the rest get their turn later)
     const fresh = [...new Set(w.spawn.map(s => s[0]))].filter(t => !this.seenFoes.has(t) && ENEMIES[t]?.special && !ENEMIES[t].boss).slice(0, 2);
     fresh.forEach(t => this.seenFoes.add(t));
-    fresh.forEach((t, k) => this.after(3.5 + k * 4.5, () => this.state === 'fight' && this.hud.toast(`New in the fog — ${ENEMIES[t].name}: ${ENEMIES[t].desc}`, 4.2)));
+    fresh.forEach((t, k) => this.after(3.5 + k * 4.5, () => { if (this.state !== 'fight') return; this.hud.toast(`New in the fog — ${ENEMIES[t].name}: ${ENEMIES[t].desc}`, 4.2); audio.cue('foe'); }));
     this.waveTimer = 62;
     this.waveAge = 0;
   }
@@ -918,6 +919,14 @@ export class Battle {
       this.castleBarkT -= dt;
       if (cp < 0.5 && this.castleBarkT <= 0) { this.castleBarkT = 40; this.hud.voice(pick(BARKS.castleLow)); }
       audio.intensity = clamp(this.enemyCount / 28, 0.15, 1);
+      // tell the score how close the horde is to the walls and how long until the next wave
+      let frontX = Infinity;
+      for (const u of this.units) if (u.alive && u.team !== TEAM.PLAYER && !u.isStructure && u.pos.x < frontX) frontX = u.pos.x;
+      audio.battleState({
+        active: true, alive: this.enemyCount, castle: cp,
+        danger: frontX === Infinity ? 0 : clamp(1 - (frontX - MAP.castleX - 4) / 55, 0, 1),
+        waveIn: this.waveIdx < this.waves.length - 1 ? Math.max(0, this.waveTimer) : Infinity,
+      });
     }
     // camera + light
     const camSubject = this.game.camOnArmy && this.army.units.length ? { pos: this.army.anchor } : hero;

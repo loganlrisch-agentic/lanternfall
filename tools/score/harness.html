@@ -1,0 +1,71 @@
+<!doctype html><meta charset="utf-8"><title>score harness</title>
+<script type="module">
+import { Score } from '../../src/core/score.js';
+function impulse(c, sec, decay) {
+  const len = Math.floor(c.sampleRate * sec), buf = c.createBuffer(2, len, c.sampleRate);
+  for (let ch = 0; ch < 2; ch++) { const d = buf.getChannelData(ch); let lp = 0; for (let i = 0; i < len; i++) { const t = i / len; lp = lp * 0.6 + (Math.random() * 2 - 1) * 0.4; d[i] = lp * Math.pow(1 - t, decay) * (i < 200 ? i / 200 : 1); } }
+  return buf;
+}
+// a scenario is a list of keyframes; state is interpolated between them
+const SCEN = {
+  night1: { secs: 75, biome: 'dawnhold', keys: [
+    [0, { mood: 'battle', active: false }],
+    [4, { active: true, waveIn: 16, alive: 0, danger: 0, castle: 1 }],
+    [20, { cue: 'wave', waveIn: 62, alive: 4 }],
+    [30, { alive: 16, danger: 0.35 }], [42, { alive: 22, danger: 0.7 }], [55, { alive: 8, danger: 0.4 }], [66, { alive: 0, danger: 0 }], [75, {}],
+  ] },
+  night6: { secs: 100, biome: 'citadel', keys: [
+    [0, { mood: 'battle', active: true, waveIn: 22, alive: 0, danger: 0, castle: 0.6 }],
+    [22, { cue: 'wave', waveIn: 62, alive: 6 }],
+    [24, { cue: 'foe' }],
+    [32, { alive: 28, danger: 0.85, castle: 0.4 }], [44, { alive: 30, danger: 0.95, castle: 0.25 }],
+    [50, { mood: 'boss', alive: 20, waveIn: Infinity }], [82, { alive: 10, danger: 0.6 }],
+    [84, { mood: 'victory' }], [100, {}],
+  ] },
+  title: { secs: 48, biome: 'title', keys: [[0, { mood: 'menu' }], [48, {}]] },
+  camp: { secs: 36, biome: 'title', keys: [[0, { mood: 'camp' }], [36, {}]] },
+};
+window.render = async (name, sr = 24000, mute = []) => {
+  const S = SCEN[name];
+  const ctx = new OfflineAudioContext(2, Math.floor(sr * S.secs), sr);
+  const master = ctx.createGain(); master.gain.value = 0.8;
+  const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4; comp.knee.value = 8;
+  master.connect(comp); comp.connect(ctx.destination);
+  const music = ctx.createGain(); music.gain.value = 0.6; music.connect(master);
+  const rev = ctx.createConvolver(); rev.buffer = impulse(ctx, 3.4, 2.2); const rg = ctx.createGain(); rg.gain.value = 0.5; rev.connect(rg); rg.connect(master);
+  const send = ctx.createGain(); send.gain.value = 0.55; music.connect(send); send.connect(rev);
+  const nb = ctx.createBuffer(1, sr * 3, sr), nd = nb.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+  const sc = new Score({ ctx, music, noise: nb });
+  for (const m of mute) if (typeof sc[m] === 'function' && !['pad', 'trem', 'whisper'].includes(m)) sc[m] = () => {};
+  const bl = sc.buildLayers.bind(sc);
+  sc.buildLayers = (t) => { const L = bl(t); for (const m of mute) if (L[m]) (L[m].g || L[m].level).disconnect(); return L; };
+  const st = { active: false, alive: 0, danger: 0, waveIn: Infinity, castle: 1 };
+  let ki = 0, nodes = 0;
+  const orig = ctx.createOscillator.bind(ctx); ctx.createOscillator = () => { nodes++; return orig(); };
+  for (let t = 0; t < S.secs; t += 0.05) {
+    while (ki < S.keys.length && S.keys[ki][0] <= t) {
+      const k = S.keys[ki][1];
+      for (const [kk, v] of Object.entries(k)) if (!['mood', 'cue'].includes(kk)) st[kk] = v;
+      if (k.mood) sc.setMood(k.mood, S.biome, t);
+      if (k.cue) sc.cue(k.cue, t);
+      ki++;
+    }
+    if (st.waveIn !== Infinity && st.active) st.waveIn = Math.max(0, st.waveIn - 0.05);
+    sc.setBattle(st);
+    sc.schedule(t);
+  }
+  const buf = await ctx.startRendering();
+  const L = buf.getChannelData(0), R = buf.getChannelData(1);
+  let peak = 0, nan = 0; const win = []; const W = sr * 2;
+  for (let i = 0; i < L.length; i += W) { let s = 0; for (let j = i; j < Math.min(L.length, i + W); j++) { const v = L[j]; if (v !== v) { nan++; continue; } s += v * v; peak = Math.max(peak, Math.abs(v), Math.abs(R[j])); } win.push(+(20 * Math.log10(Math.sqrt(s / W) + 1e-9)).toFixed(1)); }
+  // 16-bit wav
+  const n = L.length, bytes = new ArrayBuffer(44 + n * 4), dv = new DataView(bytes);
+  const wstr = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+  wstr(0, 'RIFF'); dv.setUint32(4, 36 + n * 4, true); wstr(8, 'WAVE'); wstr(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 2, true);
+  dv.setUint32(24, sr, true); dv.setUint32(28, sr * 4, true); dv.setUint16(32, 4, true); dv.setUint16(34, 16, true); wstr(36, 'data'); dv.setUint32(40, n * 4, true);
+  for (let i = 0; i < n; i++) { dv.setInt16(44 + i * 4, Math.max(-1, Math.min(1, L[i] || 0)) * 32767, true); dv.setInt16(46 + i * 4, Math.max(-1, Math.min(1, R[i] || 0)) * 32767, true); }
+  let bin = ''; const u8 = new Uint8Array(bytes); for (let i = 0; i < u8.length; i += 0x8000) bin += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+  return { peak: +peak.toFixed(3), nan, rmsPer2s: win, oscillators: nodes, wav: btoa(bin) };
+};
+window.ready = true;
+</script>

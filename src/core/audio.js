@@ -1,5 +1,6 @@
 // Dark procedural score + sound effects. Kenney CC0 samples for foley; everything else is synthesized.
 import { A } from './assets.js';
+import { Score } from './score.js';
 
 const NOTE = n => 440 * Math.pow(2, (n - 69) / 12);
 // D natural minor / harmonic minor material
@@ -36,6 +37,7 @@ class Audio {
     this.musicSend = c.createGain(); this.musicSend.gain.value = 0.55; this.music.connect(this.musicSend); this.musicSend.connect(this.reverb);
     this.sfxSend = c.createGain(); this.sfxSend.gain.value = 0.22; this.sfxBus.connect(this.sfxSend); this.sfxSend.connect(this.reverb);
     this.noise = this.makeNoise(3);
+    this.score = new Score(this);
     this.ready = true;
     for (const [k, buf] of Object.entries(A.sfx)) {
       c.decodeAudioData(buf.slice(0)).then(b => { this.buffers[k] = b; }).catch(() => {});
@@ -269,17 +271,6 @@ class Audio {
     s.connect(bp); bp.connect(wg); wg.connect(this.amb);
     s.start(t); lfo.start(t); lfo2.start(t);
     nodes.push(s, lfo, lfo2);
-    // low drone
-    const root = { thornwood: 36, highforge: 34, redmaw: 33, drowned: 31, citadel: 32 }[biome] || 38;
-    const dg = c.createGain(); dg.gain.value = 0.0001; dg.gain.linearRampToValueAtTime(0.11, t + 4);
-    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 160; lp.Q.value = 2;
-    const dl = c.createOscillator(); dl.frequency.value = 0.04; const dlg = c.createGain(); dlg.gain.value = 70; dl.connect(dlg); dlg.connect(lp.frequency);
-    for (const [n, det] of [[root, -4], [root, 5], [root + 12, 0], [root + 7, 3]]) {
-      const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = NOTE(n); o.detune.value = det;
-      o.connect(lp); o.start(t); nodes.push(o);
-    }
-    lp.connect(dg); dg.connect(this.amb);
-    dl.start(t); nodes.push(dl);
     // rain hiss
     if (biome === 'drowned') {
       const rs = c.createBufferSource(); rs.buffer = this.noise; rs.loop = true;
@@ -287,7 +278,7 @@ class Audio {
       const rg = c.createGain(); rg.gain.value = 0.09;
       rs.connect(hp); hp.connect(rg); rg.connect(this.amb); rs.start(t); nodes.push(rs);
     }
-    this.ambNodes = { nodes, gains: [wg, dg] };
+    this.ambNodes = { nodes, gains: [wg] };
   }
   stopAmbience() {
     if (!this.ambNodes) return;
@@ -298,71 +289,24 @@ class Audio {
     this.ambNodes = null;
   }
 
-  // ---------- music ----------
+  // ---------- music (see score.js) ----------
   setMood(mood, biome) {
     if (!this.ready) { this.pendingMood = { mood, biome }; return; }
     if (mood === this.mood && biome === this.biome) return;
     this.mood = mood; this.biome = biome;
-    this.bar = 0; this.step = 0;
-    this.nextT = this.ctx.currentTime + 0.3;
-    if (mood === 'victory') this.play('stingVictory', null, 1);
-    if (mood === 'defeat') this.play('stingDefeat', null, 1);
+    this.score.setMood(mood, biome, this.ctx.currentTime);
   }
+  // what the battle is doing right now, for the score to follow
+  battleState(s) { if (this.score) this.score.setBattle(s); }
+  cue(name) { if (this.ready && this.ctx.state === 'running') this.score.cue(name, this.ctx.currentTime + 0.03); }
 
   startScheduler() {
-    this.step = 0; this.bar = 0; this.nextT = this.ctx.currentTime + 0.2;
     setInterval(() => this.schedule(), 60);
   }
 
   schedule() {
     if (!this.ready || this.ctx.state !== 'running') return;
-    const c = this.ctx;
-    const out = this.music;
-    while (this.nextT < c.currentTime + 0.25) {
-      const t = this.nextT;
-      const m = this.mood;
-      if (m === 'battle' || m === 'boss') {
-        const boss = m === 'boss';
-        const bpm = boss ? 86 : 70;
-        const eighth = 60 / bpm / 2;
-        const s = this.step % 16;
-        const I = boss ? 1 : this.intensity;
-        // war drums
-        if (s === 0 || s === 8) this.drum(t, out, 48, 0.9);
-        if (s === 6 && I > 0.35) this.drum(t, out, 52, 0.45);
-        if ((s === 12 || s === 14) && I > 0.55) this.drum(t, out, 58, 0.5, 0.4);
-        if (boss && (s === 4 || s === 10)) this.drum(t, out, 44, 0.8);
-        if (I > 0.75 && s % 2 === 1 && Math.random() < 0.35) this.drum(t, out, 90, 0.18, 0.15);
-        // ostinato bass
-        const prog = ['Dm', 'Dm', 'Bb', 'A'];
-        const ch = CHORDS[prog[Math.floor(this.bar / 2) % 4]];
-        const pat = [0, 0, 2, 0, 1, 0, 2, 1];
-        if (s % 2 === 0) this.osc('sawtooth', NOTE(ch[pat[(s / 2) % 8]] - 24), t, eighth * 1.7, 0.09 + I * 0.05, out, { filter: { f: 380 + I * 300, q: 2 } });
-        // choir pad on bar change
-        if (s === 0 && this.bar % 2 === 0) this.choir(t, out, ch.map(n => n + (boss ? 12 : 0)), eighth * 15, boss ? 0.05 : 0.03 + I * 0.02);
-        // brass stabs in the boss fight
-        if (boss && s === 0 && this.bar % 4 === 3) this.horn(t, out, 0.5, 1.2, [ch[0] - 12, ch[2] - 12]);
-        this.step++; if (this.step % 16 === 0) this.bar++;
-        this.nextT += eighth;
-      } else if (m === 'menu' || m === 'story' || m === 'camp') {
-        const prog = m === 'menu' ? ['Dm', 'Bb', 'Gm', 'A'] : m === 'camp' ? ['Dm', 'F', 'C', 'Dm'] : ['Dm', 'Eb', 'Cm', 'Dm'];
-        const ch = CHORDS[prog[this.bar % 4]];
-        this.choir(t, out, ch, 6.5, m === 'menu' ? 0.045 : 0.03);
-        this.osc('sine', NOTE(ch[0] - 24), t, 7, 0.12, out, { a: 2 });
-        if (this.bar % 2 === 0) this.bell(t + 0.2, out, NOTE(ch[0] - 12), 0.25);
-        if (m === 'camp') [0, 1.4, 2.8, 4.2].forEach((d, i) => this.osc('triangle', NOTE(ch[i % 3] + 12), t + d + 0.6, 1.6, 0.05, out, { a: 0.01 }));
-        this.bar++;
-        this.nextT += 7.5;
-      } else {
-        this.nextT += 0.5;
-      }
-    }
-    // heartbeat when the walls are failing
-    if (this.heartbeat && (!this.hbT || c.currentTime > this.hbT)) {
-      this.hbT = c.currentTime + 1.05;
-      const g = c.createGain(); g.gain.value = 0.7; g.connect(this.sfxBus);
-      this.sfx('heart', c.currentTime + 0.05, g);
-    }
+    this.score.schedule(this.ctx.currentTime);
   }
 }
 

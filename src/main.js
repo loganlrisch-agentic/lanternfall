@@ -45,7 +45,7 @@ class Game {
     this.applySettings();
     this.last = performance.now();
     requestAnimationFrame(() => this.loop());
-    window.__game = this;
+    window.__game = this; window.__audio = audio;
     if (params.get('test')) { await this.runTest(); }
     else { this.buildTitle(); this.toTitle(); }
     const ld = document.getElementById('loading');
@@ -288,6 +288,7 @@ class Game {
   pause() {
     if (!this.battle || this.paused) return;
     this.paused = true;
+    audio.battleState({ active: false });   // the score settles while the menu is open
     this.input.enabled = false;
     this.input.releaseLock();
     if (this.arcade) return this.screens.pause(() => this.resume(), a => {
